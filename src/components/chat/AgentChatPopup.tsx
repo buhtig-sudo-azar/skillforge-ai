@@ -179,7 +179,7 @@ export function AgentChatPopup() {
             exit={{ scale: 0, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 400, damping: 25 }}
             onClick={() => setIsOpen(true)}
-            className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2"
+            className="fixed bottom-[84px] right-6 z-50 flex flex-col items-end gap-2"
             aria-label="Открыть чат с AI-наставником"
           >
             <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded-md border border-primary/20 animate-pulse">

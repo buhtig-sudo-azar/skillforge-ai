@@ -10,6 +10,7 @@ interface SandboxRequestBody {
   sandboxType?: string;
   model?: string;
   mode?: 'educational' | 'advanced';
+  apiToken?: string;
 }
 
 // ============================================================
@@ -139,7 +140,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Неверный формат запроса' }, { status: 400 });
   }
 
-  const { input, systemPrompt, sandboxType, model, mode } = body;
+  const { input, systemPrompt, sandboxType, model, mode, apiToken } = body;
 
   // ---- Validate input ----
   const inputError = validateInput(input ?? '');
@@ -147,8 +148,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: inputError }, { status: 400 });
   }
 
+  // Приоритет: пользовательский токен → env-переменная
+  const apiKey = apiToken || OPENROUTER_API_KEY;
+
   // ---- Educational mode: simulated response ----
-  if (mode === 'educational' || !OPENROUTER_API_KEY) {
+  if (mode === 'educational' || !apiKey) {
     const simulatedOutput = generateEducationalResponse(input!, systemPrompt ?? '');
     return NextResponse.json({
       output: simulatedOutput,
@@ -180,7 +184,7 @@ export async function POST(req: NextRequest) {
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+          'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
           'HTTP-Referer': 'https://skillforge-ai-plum.vercel.app/',
           'X-Title': 'SkillForge AI Sandbox',

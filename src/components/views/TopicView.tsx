@@ -231,33 +231,6 @@ export function TopicView() {
           </Card>
         </motion.div>
 
-        {/* Ссылка на песочницу */}
-        {subtopic?.sandboxType && (
-          <motion.div variants={sectionVariants}>
-            <Card className="border-primary/20 bg-primary/5">
-              <CardContent className="flex items-center justify-between py-4">
-                <div className="flex items-center gap-3">
-                  <Play className="size-5 text-primary" />
-                  <div>
-                    <div className="text-sm font-medium">Попробовать в песочнице</div>
-                    <div className="text-xs text-muted-foreground">
-                      Тип: {subtopic.sandboxType}
-                    </div>
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  onClick={() => navigate('sandbox')}
-                  className="gap-1.5"
-                >
-                  <Play className="size-3.5" />
-                  Открыть
-                </Button>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
-
         {/* Частые ошибки */}
         <motion.div variants={sectionVariants}>
           <Card>
