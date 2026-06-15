@@ -292,7 +292,7 @@ export interface ChatMessage {
   id: string;
   role: 'system' | 'user' | 'assistant';
   content: string;
-  model?: string;
+  model: string;
   tokens?: number;
   timestamp: Date;
 }

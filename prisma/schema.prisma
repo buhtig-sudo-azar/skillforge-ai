@@ -202,7 +202,7 @@ model ChatMessage {
   session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   role      String      // system, user, assistant
   content   String
-  model     String?
+  model     String
   tokens    Int?
   createdAt DateTime    @default(now())
 }
