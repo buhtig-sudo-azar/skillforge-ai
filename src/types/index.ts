@@ -18,7 +18,6 @@ export type ViewType =
   | 'rag-manager'
   | 'models'
   | 'security'
-  | 'admin'
   | 'achievements';
 
 export interface NavigationState {

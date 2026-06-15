@@ -17,7 +17,6 @@ import {
   RAGManagerView,
   ModelsView,
   AchievementsView,
-  AdminView,
   SecurityView,
   PlaceholderView,
 } from '@/components/views';
@@ -52,8 +51,6 @@ function ViewRouter() {
         return <ModelsView />;
       case 'security':
         return <SecurityView />;
-      case 'admin':
-        return <AdminView />;
       case 'achievements':
         return <AchievementsView />;
       default:

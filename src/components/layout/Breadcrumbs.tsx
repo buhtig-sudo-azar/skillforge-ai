@@ -25,7 +25,6 @@ const viewLabels: Record<ViewType, string> = {
   'rag-manager': 'RAG-менеджер',
   models: 'Модели',
   security: 'Безопасность',
-  admin: 'Админ',
   achievements: 'Достижения',
 };
 

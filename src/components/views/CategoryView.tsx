@@ -169,12 +169,7 @@ export function CategoryView() {
                   ? 'темы'
                   : 'тем'}
             </Badge>
-            {subtopics.some((s) => s.sandboxType) && (
-              <Badge className="border-white/30 bg-white/20 text-white backdrop-blur-sm hover:bg-white/30">
-                <FlaskConical className="mr-1 size-3" />
-                Песочница
-              </Badge>
-            )}
+
             {subtopics.some((s) => s.diagramType) && (
               <Badge className="border-white/30 bg-white/20 text-white backdrop-blur-sm hover:bg-white/30">
                 <GitBranch className="mr-1 size-3" />

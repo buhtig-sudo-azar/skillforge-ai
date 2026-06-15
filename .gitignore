@@ -55,3 +55,6 @@ server.log
 skills/
 examples/
 tool-results/
+
+# Generated files
+download/

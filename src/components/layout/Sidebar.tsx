@@ -18,7 +18,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Sparkles,
-  Settings,
 } from 'lucide-react';
 import { useNavigationStore } from '@/store/navigation-store';
 import { useProgressStore } from '@/store/progress-store';
@@ -61,7 +60,6 @@ const bottomNavItems: NavItem[] = [
   { id: 'achievements', label: 'Достижения', icon: Trophy, view: 'achievements' },
   { id: 'models', label: 'Модели', icon: Zap, view: 'models' },
   { id: 'security', label: 'Безопасность', icon: Shield, view: 'security' },
-  { id: 'admin', label: 'Админ', icon: Settings, view: 'admin' },
 ];
 
 export function Sidebar() {

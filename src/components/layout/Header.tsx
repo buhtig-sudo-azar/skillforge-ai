@@ -31,31 +31,33 @@ export function Header() {
   const totalXP = useProgressStore((s) => s.totalXP);
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background/95 px-3 sm:gap-3 sm:px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       {/* Кнопка меню для мобильных */}
       {isMobile && (
-        <Button variant="ghost" size="icon" className="size-9" onClick={toggleSidebar}>
+        <Button variant="ghost" size="icon" className="size-9 shrink-0" onClick={toggleSidebar}>
           <Menu className="size-4" />
         </Button>
       )}
 
       {/* Хлебные крошки */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 overflow-hidden">
         <AppBreadcrumbs />
       </div>
 
-      {/* Поиск */}
+      {/* Поиск — скрыт на мобильных */}
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className="size-9 shrink-0">
+          <Button variant="ghost" size="icon" className="hidden sm:inline-flex size-9 shrink-0">
             <Search className="size-4" />
           </Button>
         </TooltipTrigger>
         <TooltipContent>Поиск</TooltipContent>
       </Tooltip>
 
-      {/* Селектор модели + добавление токена */}
-      <ModelSelector />
+      {/* Селектор модели — скрыт на мобильных */}
+      <div className="hidden sm:block shrink-0">
+        <ModelSelector />
+      </div>
 
       <Separator orientation="vertical" className="hidden h-6 sm:block" />
 

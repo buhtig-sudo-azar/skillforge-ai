@@ -11,6 +11,5 @@ export { MCPManagerView } from './MCPManagerView';
 export { RAGManagerView } from './RAGManagerView';
 export { ModelsView } from './ModelsView';
 export { AchievementsView } from './AchievementsView';
-export { AdminView } from './AdminView';
 export { SecurityView } from './SecurityView';
 export { PlaceholderView } from './PlaceholderView';
