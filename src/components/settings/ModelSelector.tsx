@@ -19,6 +19,7 @@ import {
 import { Cpu, ChevronsUpDown, Check, Wifi, WifiOff, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { ModelAvailabilityPanel } from './ModelAvailabilityPanel';
 
 const DEFAULT_MODELS = [
   { id: 'google/gemma-3-27b-it:free', name: 'Gemma 3 27B', label: 'Gemma 3 27B (Free)' },
@@ -92,7 +93,7 @@ export function ModelSelector() {
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-[360px] p-0" align="end">
+      <PopoverContent className="w-[360px] p-0 max-h-[70vh] overflow-y-auto" align="end">
         <Command>
           <div className="flex items-center border-b border-border px-3">
             <CommandInput placeholder="Поиск моделей..." className="flex-1" />
@@ -179,13 +180,17 @@ export function ModelSelector() {
         <div className="px-3 py-2 border-t border-border">
           <ApiTokenInput />
         </div>
+
+        <ModelAvailabilityPanel />
       </PopoverContent>
     </Popover>
   );
 }
 
 // ============================================================
-// ApiTokenInput — точная копия паттерна из llm-red-team-lab
+// ApiTokenInput — токенная проверка как в llm-red-team-lab
+// ИСПРАВЛЕНО: "невалиден" только при invalid_token (401),
+// а не при ошибке модели (error/not_found)
 // ============================================================
 
 function ApiTokenInput() {
@@ -193,7 +198,7 @@ function ApiTokenInput() {
   const [inputValue, setInputValue] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [verifyResult, setVerifyResult] = useState<'valid' | 'invalid' | null>(null);
+  const [verifyResult, setVerifyResult] = useState<'valid' | 'invalid' | 'check_error' | null>(null);
   const { toast } = useToast();
 
   const handleSave = async () => {
@@ -214,25 +219,46 @@ function ApiTokenInput() {
     setVerifyResult(null);
     try {
       const result = await checkModel(currentModel);
-      const isValid = result.available || result.reason === 'rate_limited' || result.reason === 'insufficient_credits';
-      setVerifyResult(isValid ? 'valid' : 'invalid');
-      if (isValid) {
-        if (result.available) {
-          toast({ title: 'Токен валиден', description: 'API-ключ работает корректно.' });
-        } else if (result.reason === 'rate_limited') {
-          toast({ title: 'Токен валиден', description: 'Токен работает, но достигнут лимит запросов. Попробуйте позже.' });
-        } else if (result.reason === 'insufficient_credits') {
-          toast({ title: 'Токен валиден', description: 'Токен работает, но недостаточно кредитов для платной модели. Используйте бесплатную модель.' });
-        }
-      } else {
+
+      // ============================================================
+      // КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ:
+      // Токен ВАЛИДЕН если: available, rate_limited, insufficient_credits
+      // Токен НЕВАЛИДЕН только если: invalid_token (401 от OpenRouter)
+      // Если модель не найдена или ошибка сети — это не проблема токена
+      // ============================================================
+      if (result.available) {
+        setVerifyResult('valid');
+        toast({ title: 'Токен валиден', description: 'API-ключ работает корректно.' });
+      } else if (result.reason === 'rate_limited') {
+        setVerifyResult('valid');
+        toast({ title: 'Токен валиден', description: 'Токен работает, но достигнут лимит запросов. Попробуйте позже.' });
+      } else if (result.reason === 'insufficient_credits') {
+        setVerifyResult('valid');
+        toast({ title: 'Токен валиден', description: 'Токен работает, но недостаточно кредитов для платной модели. Используйте бесплатную модель.' });
+      } else if (result.reason === 'invalid_token') {
+        // ТОЛЬКО 401 = действительно невалидный токен
+        setVerifyResult('invalid');
         toast({
           title: 'Токен невалиден',
           description: 'API-ключ не прошёл проверку. Проверьте правильность ключа.',
           variant: 'destructive',
         });
+      } else {
+        // not_found, error, null — проблема с моделью, а не с токеном
+        setVerifyResult('check_error');
+        toast({
+          title: 'Не удалось проверить токен',
+          description: `Модель "${currentModel.split('/').pop()}" недоступна. Попробуйте проверить с другой моделью или нажмите «Проверить все» ниже.`,
+          variant: 'default',
+        });
       }
     } catch {
-      setVerifyResult('invalid');
+      // Сетевая ошибка — не проблема токена
+      setVerifyResult('check_error');
+      toast({
+        title: 'Ошибка проверки',
+        description: 'Не удалось подключиться к OpenRouter. Проверьте интернет-соединение.',
+      });
     } finally {
       setIsVerifying(false);
     }
@@ -286,6 +312,9 @@ function ApiTokenInput() {
           )}
           {verifyResult === 'invalid' && (
             <WifiOff className="w-3 h-3 text-red-500 shrink-0" />
+          )}
+          {verifyResult === 'check_error' && (
+            <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
           )}
         </div>
         <button

@@ -32,6 +32,7 @@ interface ModelState {
   availableModels: FreeModel[];
   isLoadingModels: boolean;
   modelsError: string | null;
+  isApplying: boolean;
   isCheckingAll: boolean;
   rateLimits: Record<string, ModelRateLimit>;
   setCurrentModel: (model: string) => void;
@@ -41,6 +42,7 @@ interface ModelState {
   checkModel: (modelId: string) => Promise<ModelRateLimit>;
   checkAllModels: () => Promise<void>;
   markModelRateLimited: (modelId: string) => void;
+  setIsApplying: (applying: boolean) => void;
   getModelForRequest: () => string;
   getTokenForRequest: () => string;
   getRateLimit: (modelId: string) => ModelRateLimit | undefined;
@@ -126,6 +128,7 @@ export const useModelStore = create<ModelState>((set, get) => ({
   availableModels: [],
   isLoadingModels: false,
   modelsError: null,
+  isApplying: false,
   isCheckingAll: false,
   rateLimits: {},
 
@@ -146,17 +149,20 @@ export const useModelStore = create<ModelState>((set, get) => ({
 
   fetchAvailableModels: async () => {
     if (get().isLoadingModels) return;
-    if (get().availableModels.length > 0) return;
+    // Позволяем принудительное обновление — не блокируем если уже есть данные
 
     set({ isLoadingModels: true, modelsError: null });
 
     try {
       const res = await fetch('/api/models');
+
       if (!res.ok) {
         throw new Error('Не удалось загрузить список моделей');
       }
+
       const data = await res.json();
       const models: FreeModel[] = data.models || [];
+
       set({ availableModels: models, isLoadingModels: false });
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Ошибка загрузки моделей';
@@ -239,6 +245,8 @@ export const useModelStore = create<ModelState>((set, get) => ({
     saveRateLimitsToStorage(updated);
     set({ rateLimits: updated });
   },
+
+  setIsApplying: (applying) => set({ isApplying: applying }),
 
   getModelForRequest: () => get().currentModel,
 

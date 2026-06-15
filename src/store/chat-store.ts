@@ -64,7 +64,7 @@ async function parseSSEStream(
           try {
             const parsed = JSON.parse(payload);
 
-            // Обработка события model_info
+            // Обработка события model_info — включая rate-limited модели
             if (parsed.type === 'model_info' && parsed.model) {
               onModelInfo(parsed.model, parsed.rateLimited ?? []);
               continue;
@@ -183,8 +183,8 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
               return { messages: updated };
             });
           },
-          // onModelInfo: обновляем информацию о модели
-          (modelName) => {
+          // onModelInfo: обновляем информацию о модели + помечаем rate-limited
+          async (modelName, rateLimited) => {
             set((state) => {
               const updated = [...state.messages];
               const lastMsg = updated[updated.length - 1];
@@ -196,6 +196,19 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
               }
               return { messages: updated, currentModel: modelName };
             });
+
+            // Помечаем rate-limited модели в model-store
+            if (rateLimited && rateLimited.length > 0) {
+              try {
+                const { useModelStore } = await import('@/store/model-store');
+                const modelStore = useModelStore.getState();
+                for (const modelId of rateLimited) {
+                  modelStore.markModelRateLimited(modelId);
+                }
+              } catch {
+                // ignore import errors
+              }
+            }
           },
           controller.signal,
         );

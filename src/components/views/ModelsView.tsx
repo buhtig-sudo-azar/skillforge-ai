@@ -6,6 +6,9 @@ import {
   Cpu,
   RefreshCw,
   Check,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
   X,
   Zap,
   Clock,
@@ -23,13 +26,8 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useModelStore, useSelectedModel, useApiToken, useRateLimits } from '@/store/model-store';
-
-const providerLabels: Record<string, string> = {
-  openrouter: 'OpenRouter',
-  openai: 'OpenAI',
-  anthropic: 'Anthropic',
-  local: 'Локальная',
-};
+import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -45,12 +43,13 @@ export function ModelsView() {
   const currentModel = useSelectedModel();
   const apiToken = useApiToken();
   const rateLimits = useRateLimits();
-  const { setCurrentModel, setApiToken, clearApiToken, checkModel, fetchAvailableModels, availableModels, isLoadingModels } = useModelStore();
+  const { setCurrentModel, setApiToken, clearApiToken, checkModel, checkAllModels, fetchAvailableModels, availableModels, isLoadingModels, isCheckingAll } = useModelStore();
+  const { toast } = useToast();
 
   const [tokenInput, setTokenInput] = useState(apiToken ?? '');
   const [showToken, setShowToken] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [verifyResult, setVerifyResult] = useState<'valid' | 'invalid' | null>(null);
+  const [verifyResult, setVerifyResult] = useState<'valid' | 'invalid' | 'check_error' | null>(null);
 
   useEffect(() => {
     if (availableModels.length === 0) {
@@ -60,12 +59,20 @@ export function ModelsView() {
 
   const handleSaveToken = () => {
     setApiToken(tokenInput);
+    toast({
+      title: 'Токен сохранён',
+      description: 'Ваш API-токен будет использоваться для всех запросов к моделям.',
+    });
   };
 
   const handleRemoveToken = () => {
     clearApiToken();
     setTokenInput('');
     setVerifyResult(null);
+    toast({
+      title: 'Токен удалён',
+      description: 'Теперь используется общий токен платформы.',
+    });
   };
 
   const handleVerify = async () => {
@@ -74,16 +81,40 @@ export function ModelsView() {
     setVerifyResult(null);
     try {
       const result = await checkModel(currentModel);
-      const isValid = result.available || result.reason === 'rate_limited' || result.reason === 'insufficient_credits';
-      setVerifyResult(isValid ? 'valid' : 'invalid');
+
+      if (result.available) {
+        setVerifyResult('valid');
+        toast({ title: 'Токен валиден', description: 'API-ключ работает корректно.' });
+      } else if (result.reason === 'rate_limited') {
+        setVerifyResult('valid');
+        toast({ title: 'Токен валиден', description: 'Токен работает, но достигнут лимит запросов.' });
+      } else if (result.reason === 'insufficient_credits') {
+        setVerifyResult('valid');
+        toast({ title: 'Токен валиден', description: 'Токен работает, но недостаточно кредитов для платной модели.' });
+      } else if (result.reason === 'invalid_token') {
+        setVerifyResult('invalid');
+        toast({ title: 'Токен невалиден', description: 'API-ключ не прошёл проверку. Проверьте правильность ключа.', variant: 'destructive' });
+      } else {
+        setVerifyResult('check_error');
+        toast({ title: 'Не удалось проверить', description: `Модель "${currentModel.split('/').pop()}" недоступна. Попробуйте проверить с другой моделью.`, variant: 'default' });
+      }
     } catch {
-      setVerifyResult('invalid');
+      setVerifyResult('check_error');
+      toast({ title: 'Ошибка проверки', description: 'Не удалось подключиться к OpenRouter.' });
     } finally {
       setIsVerifying(false);
     }
   };
 
+  const handleCheckAll = async () => {
+    await checkAllModels();
+    toast({ title: 'Проверка завершена', description: 'Статус всех моделей обновлён.' });
+  };
+
   const maskedToken = apiToken ? apiToken.slice(0, 6) + '...' + apiToken.slice(-4) : '';
+
+  const availableCount = availableModels.filter(m => rateLimits[m.id]?.available).length;
+  const rateLimitedCount = availableModels.filter(m => rateLimits[m.id]?.reason === 'rate_limited').length;
 
   return (
     <ScrollArea className="h-[calc(100vh-4rem)]">
@@ -104,20 +135,36 @@ export function ModelsView() {
               </p>
             </div>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={fetchAvailableModels}
-            disabled={isLoadingModels}
-          >
-            {isLoadingModels ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <RefreshCw className="size-3.5" />
-            )}
-            Обновить список моделей
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={handleCheckAll}
+              disabled={isCheckingAll}
+            >
+              {isCheckingAll ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Zap className="size-3.5" />
+              )}
+              Проверить все
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={fetchAvailableModels}
+              disabled={isLoadingModels}
+            >
+              {isLoadingModels ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="size-3.5" />
+              )}
+              Обновить
+            </Button>
+          </div>
         </motion.div>
 
         <motion.div
@@ -149,6 +196,9 @@ export function ModelsView() {
                         {verifyResult === 'invalid' && (
                           <WifiOff className="size-4 text-red-500 shrink-0" />
                         )}
+                        {verifyResult === 'check_error' && (
+                          <AlertTriangle className="size-4 text-amber-500 shrink-0" />
+                        )}
                       </div>
                       <Button
                         variant="outline"
@@ -175,7 +225,7 @@ export function ModelsView() {
                       </Button>
                     </div>
                     <p className="text-xs text-emerald-600 dark:text-emerald-400">
-                      ✓ Токен сохранён в localStorage
+                      Токен сохранён в localStorage
                     </p>
                   </div>
                 ) : (
@@ -230,6 +280,164 @@ export function ModelsView() {
             </Card>
           </motion.div>
 
+          {/* Model Availability Overview */}
+          <motion.div variants={sectionVariants}>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  {availableCount > 0 ? (
+                    <Wifi className="size-4 text-green-500" />
+                  ) : (
+                    <WifiOff className="size-4 text-muted-foreground" />
+                  )}
+                  Доступность моделей
+                  {Object.keys(rateLimits).length > 0 && (
+                    <span className="text-sm font-normal text-muted-foreground">
+                      ({availableCount}/{availableModels.length} доступно{rateLimitedCount > 0 ? `, ${rateLimitedCount} лимит` : ''})
+                    </span>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isCheckingAll && (
+                  <div className="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Проверяю доступность моделей...
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-2">
+                  {availableModels.map((model) => {
+                    const info = rateLimits[model.id];
+                    const isSelected = currentModel === model.id;
+                    const isRateLimited = info?.reason === 'rate_limited';
+                    const isUnavailable = info?.available === false && !isRateLimited;
+
+                    return (
+                      <div
+                        key={model.id}
+                        onClick={() => setCurrentModel(model.id)}
+                        className={cn(
+                          'cursor-pointer rounded-lg border p-4 transition-colors',
+                          isSelected
+                            ? 'border-primary bg-primary/5'
+                            : isRateLimited
+                              ? 'border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-900/10'
+                              : isUnavailable
+                                ? 'border-rose-200 bg-rose-50/50 dark:border-rose-800 dark:bg-rose-900/10 opacity-60'
+                                : 'hover:bg-muted/50'
+                        )}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              {/* Статус иконка */}
+                              {!info && (
+                                <span className="w-4 h-4 rounded-full bg-muted-foreground/20 inline-block shrink-0" />
+                              )}
+                              {info?.available && (
+                                <CheckCircle2 className="size-4 text-green-500 shrink-0" />
+                              )}
+                              {info?.reason === 'rate_limited' && (
+                                <AlertTriangle className="size-4 text-amber-500 shrink-0" />
+                              )}
+                              {isUnavailable && info && (
+                                <XCircle className="size-4 text-red-500 shrink-0" />
+                              )}
+
+                              <h3 className="text-sm font-medium">{model.name || model.label}</h3>
+
+                              <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                <Zap className="mr-1 size-3" />
+                                Бесплатно
+                              </Badge>
+
+                              {isRateLimited && (
+                                <Badge variant="secondary" className="text-xs">Лимит</Badge>
+                              )}
+
+                              {isUnavailable && info?.reason === 'not_found' && (
+                                <Badge variant="destructive" className="text-xs">Недоступна</Badge>
+                              )}
+
+                              {isUnavailable && info?.reason === 'invalid_token' && (
+                                <Badge variant="destructive" className="text-xs">Токен невалиден</Badge>
+                              )}
+
+                              {isUnavailable && info?.reason === 'error' && (
+                                <Badge variant="destructive" className="text-xs">Ошибка</Badge>
+                              )}
+
+                              {isSelected && (
+                                <Badge variant="default" className="shrink-0">
+                                  Активна
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="mt-1 text-xs text-muted-foreground font-mono">
+                              {model.id}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            {/* Латентность */}
+                            {info?.latency && (
+                              <span className={cn(
+                                'text-[10px] font-mono px-1.5 py-0.5 rounded',
+                                info.latency < 2000 ? 'bg-green-500/10 text-green-600' :
+                                info.latency < 5000 ? 'bg-amber-500/10 text-amber-600' :
+                                'bg-red-500/10 text-red-600'
+                              )}>
+                                {info.latency < 1000 ? `${info.latency}ms` : `${(info.latency / 1000).toFixed(1)}s`}
+                              </span>
+                            )}
+
+                            {/* Remaining/Limit */}
+                            {info?.available && info.remaining !== null && info.remaining !== undefined && (
+                              <span className={cn(
+                                'text-[10px] font-mono px-1.5 py-0.5 rounded',
+                                info.remaining < 5 ? 'bg-amber-500/10 text-amber-600' : 'bg-green-500/10 text-green-600'
+                              )}>
+                                {info.remaining}/{info.limit || '?'} ост.
+                              </span>
+                            )}
+
+                            {/* Кнопка проверки */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                checkModel(model.id);
+                              }}
+                              className="p-1 rounded hover:bg-muted transition-colors"
+                              title="Проверить доступность"
+                            >
+                              <Zap className="w-4 h-4 text-muted-foreground" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {isLoadingModels && (
+                  <div className="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Загрузка списка моделей...
+                  </div>
+                )}
+
+                {/* Время последней проверки */}
+                {Object.keys(rateLimits).length > 0 && (
+                  <div className="text-xs text-muted-foreground pt-3 mt-3 border-t border-border/50 flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5" />
+                    Последняя проверка: {new Date(Math.max(...Object.values(rateLimits).map(r => r.checkedAt || 0))).toLocaleTimeString('ru-RU')}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+
           {/* Rate Limit Status */}
           <motion.div variants={sectionVariants}>
             <Card>
@@ -249,23 +457,32 @@ export function ModelsView() {
                       >
                         <div className="flex items-center gap-2">
                           {entry.available ? (
-                            <Wifi className="size-4 text-green-500" />
+                            <CheckCircle2 className="size-4 text-green-500" />
+                          ) : entry.reason === 'rate_limited' ? (
+                            <AlertTriangle className="size-4 text-amber-500" />
                           ) : (
-                            <X className="size-4 text-rose-500" />
+                            <XCircle className="size-4 text-red-500" />
                           )}
-                          <span className="text-sm font-medium">{slug}</span>
+                          <span className="text-sm font-medium">{slug.split('/').pop()}</span>
                           {entry.reason && (
-                            <Badge variant={entry.reason === 'rate_limited' ? 'secondary' : 'destructive'} className="text-xs">
-                              {entry.reason === 'rate_limited' ? 'Лимит' : entry.reason}
+                            <Badge
+                              variant={entry.reason === 'rate_limited' ? 'secondary' : 'destructive'}
+                              className="text-xs"
+                            >
+                              {entry.reason === 'rate_limited' ? 'Лимит' :
+                               entry.reason === 'invalid_token' ? 'Невалидный токен' :
+                               entry.reason === 'not_found' ? 'Не найдена' :
+                               entry.reason === 'insufficient_credits' ? 'Нет кредитов' :
+                               entry.reason}
                             </Badge>
                           )}
                         </div>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-xs text-muted-foreground flex items-center gap-2">
                           {entry.available && entry.remaining !== null && (
-                            <span>{entry.remaining}/{entry.limit || '?'}</span>
+                            <span>{entry.remaining}/{entry.limit || '?'} ост.</span>
                           )}
                           {entry.latency && (
-                            <span className="ml-2">{entry.latency}ms</span>
+                            <span>{entry.latency < 1000 ? `${entry.latency}ms` : `${(entry.latency / 1000).toFixed(1)}s`}</span>
                           )}
                         </div>
                       </div>
@@ -275,79 +492,10 @@ export function ModelsView() {
                   <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 dark:border-emerald-800 dark:bg-emerald-900/20">
                     <Check className="size-4 text-emerald-500" />
                     <span className="text-sm text-emerald-700 dark:text-emerald-400">
-                      Нет активных ограничений
+                      Нет активных ограничений — нажмите «Проверить все» для проверки
                     </span>
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          {/* Available Models */}
-          <motion.div variants={sectionVariants}>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Доступные модели</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col gap-3">
-                  {availableModels.map((model) => {
-                    const isSelected = currentModel === model.id;
-                    const info = rateLimits[model.id];
-                    const isRateLimited = info?.reason === 'rate_limited';
-                    const isUnavailable = info?.available === false;
-                    return (
-                      <div
-                        key={model.id}
-                        onClick={() => setCurrentModel(model.id)}
-                        className={`cursor-pointer rounded-lg border p-4 transition-colors ${
-                          isSelected
-                            ? 'border-primary bg-primary/5'
-                            : isRateLimited
-                              ? 'border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-900/10'
-                              : isUnavailable
-                                ? 'border-rose-200 bg-rose-50/50 dark:border-rose-800 dark:bg-rose-900/10 opacity-60'
-                                : 'hover:bg-muted/50'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h3 className="text-sm font-medium">{model.name}</h3>
-                              <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                                <Zap className="mr-1 size-3" />
-                                Бесплатно
-                              </Badge>
-                              {isRateLimited && (
-                                <Badge variant="secondary" className="text-xs">Лимит</Badge>
-                              )}
-                              {isUnavailable && info?.reason === 'not_found' && (
-                                <Badge variant="destructive" className="text-xs">Недоступна</Badge>
-                              )}
-                            </div>
-                            <div className="mt-1 text-xs text-muted-foreground font-mono">
-                              {model.id}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {info?.available && info.remaining !== null && info.remaining !== undefined && (
-                              <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
-                                info.remaining < 5 ? 'bg-amber-500/10 text-amber-600' : 'bg-green-500/10 text-green-600'
-                              }`}>
-                                {info.remaining}/{info.limit || '?'}
-                              </span>
-                            )}
-                            {isSelected && (
-                              <Badge variant="default" className="shrink-0">
-                                ✓ Активна
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
               </CardContent>
             </Card>
           </motion.div>

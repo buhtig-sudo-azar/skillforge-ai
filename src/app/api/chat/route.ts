@@ -40,6 +40,7 @@ function sseJSON(data: unknown): string {
 
 // ============================================================
 // POST /api/chat
+// Улучшено: отслеживание rate-limited моделей в SSE
 // ============================================================
 
 export async function POST(req: NextRequest) {
@@ -68,6 +69,9 @@ export async function POST(req: NextRequest) {
     ? [requestedModel, ...FALLBACK_MODELS]
     : [PRIMARY_MODEL, ...FALLBACK_MODELS];
 
+  // Отслеживаем модели с исчерпанным лимитом
+  const rateLimitedModels: string[] = [];
+
   for (const model of modelsToTry) {
     try {
       if (!apiKey) {
@@ -92,7 +96,19 @@ export async function POST(req: NextRequest) {
       });
 
       if (!response.ok) {
-        if (response.status === 429) continue; // rate limited — try next model
+        if (response.status === 429) {
+          // Модель получила rate limit — запоминаем и пробуем следующую
+          rateLimitedModels.push(model);
+          console.log(`[/api/chat] Model ${model} rate limited, trying next...`);
+          continue;
+        }
+        if (response.status === 401) {
+          // Невалидный токен — нет смысла пробовать другие модели
+          return new Response(
+            JSON.stringify({ error: 'Невалидный API-токен. Проверьте ключ в настройках.' }),
+            { status: 401 },
+          );
+        }
         const errorText = await response.text().catch(() => '');
         console.error(`[/api/chat] Model ${model} returned ${response.status}: ${errorText}`);
         continue;
@@ -111,7 +127,7 @@ export async function POST(req: NextRequest) {
       const modelInfoEvent = sseJSON({
         type: 'model_info',
         model,
-        rateLimited: [],
+        rateLimited: rateLimitedModels,
       });
 
       const stream = new ReadableStream({
@@ -157,11 +173,11 @@ export async function POST(req: NextRequest) {
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       start(controller) {
-        // model_info event
+        // model_info event с пометкой всех моделей как rate-limited
         controller.enqueue(encoder.encode(sseJSON({
           type: 'model_info',
           model: 'fallback',
-          rateLimited: modelsToTry,
+          rateLimited: [...rateLimitedModels, ...modelsToTry.filter(m => !rateLimitedModels.includes(m))],
         })));
         // content event
         controller.enqueue(encoder.encode(sseJSON({
