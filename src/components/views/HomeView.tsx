@@ -49,7 +49,7 @@ export function HomeView() {
       >
         <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
           <Sparkles className="size-4" />
-          ALL IS SKILL
+          AI Engineering Platform
         </div>
         <h1 className="mb-3 text-3xl font-bold tracking-tight sm:text-4xl">
           Добро пожаловать в <span className="text-primary">AI Skills Lab</span>
