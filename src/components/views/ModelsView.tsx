@@ -13,17 +13,16 @@ import {
   Eye,
   EyeOff,
   Loader2,
+  Wifi,
+  WifiOff,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useModelStore, useModelActions } from '@/store/model-store';
-import { mockModels } from '@/data/view-data';
-import type { ModelConfig } from '@/types';
+import { useModelStore, useSelectedModel, useApiToken, useRateLimits } from '@/store/model-store';
 
 const providerLabels: Record<string, string> = {
   openrouter: 'OpenRouter',
@@ -43,32 +42,48 @@ const sectionVariants = {
 };
 
 export function ModelsView() {
-  const selectedModel = useModelStore((s) => s.selectedModel);
-  const apiToken = useModelStore((s) => s.apiToken);
-  const freeModels = useModelStore((s) => s.freeModels);
-  const isLoading = useModelStore((s) => s.isLoading);
-  const rateLimits = useModelStore((s) => s.rateLimits);
-  const { setModel, setApiToken, fetchFreeModels, isRateLimited } = useModelActions();
+  const currentModel = useSelectedModel();
+  const apiToken = useApiToken();
+  const rateLimits = useRateLimits();
+  const { setCurrentModel, setApiToken, clearApiToken, checkModel, fetchAvailableModels, availableModels, isLoadingModels } = useModelStore();
 
   const [tokenInput, setTokenInput] = useState(apiToken ?? '');
   const [showToken, setShowToken] = useState(false);
-  const [models] = useState<ModelConfig[]>(mockModels);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verifyResult, setVerifyResult] = useState<'valid' | 'invalid' | null>(null);
 
   useEffect(() => {
-    if (freeModels.length === 0) {
-      fetchFreeModels();
+    if (availableModels.length === 0) {
+      fetchAvailableModels();
     }
-  }, [freeModels.length, fetchFreeModels]);
+  }, [availableModels.length, fetchAvailableModels]);
 
   const handleSaveToken = () => {
-    setApiToken(tokenInput || null);
+    setApiToken(tokenInput);
   };
 
-  const formatContext = (tokens?: number) => {
-    if (!tokens) return '—';
-    if (tokens >= 1000) return `${tokens / 1000}K`;
-    return String(tokens);
+  const handleRemoveToken = () => {
+    clearApiToken();
+    setTokenInput('');
+    setVerifyResult(null);
   };
+
+  const handleVerify = async () => {
+    if (!apiToken) return;
+    setIsVerifying(true);
+    setVerifyResult(null);
+    try {
+      const result = await checkModel(currentModel);
+      const isValid = result.available || result.reason === 'rate_limited' || result.reason === 'insufficient_credits';
+      setVerifyResult(isValid ? 'valid' : 'invalid');
+    } catch {
+      setVerifyResult('invalid');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const maskedToken = apiToken ? apiToken.slice(0, 6) + '...' + apiToken.slice(-4) : '';
 
   return (
     <ScrollArea className="h-[calc(100vh-4rem)]">
@@ -93,10 +108,10 @@ export function ModelsView() {
             variant="outline"
             size="sm"
             className="gap-1.5"
-            onClick={fetchFreeModels}
-            disabled={isLoading}
+            onClick={fetchAvailableModels}
+            disabled={isLoadingModels}
           >
-            {isLoading ? (
+            {isLoadingModels ? (
               <Loader2 className="size-3.5 animate-spin" />
             ) : (
               <RefreshCw className="size-3.5" />
@@ -117,41 +132,99 @@ export function ModelsView() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Key className="size-4" />
-                  API-токен
+                  OpenRouter API-токен
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Input
-                      type={showToken ? 'text' : 'password'}
-                      placeholder="Введите API-токен (OpenRouter, OpenAI, и т.д.)"
-                      value={tokenInput}
-                      onChange={(e) => setTokenInput(e.target.value)}
-                      className="pr-10"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-1 top-1/2 size-7 -translate-y-1/2"
-                      onClick={() => setShowToken(!showToken)}
-                    >
-                      {showToken ? (
-                        <EyeOff className="size-3.5" />
-                      ) : (
-                        <Eye className="size-3.5" />
-                      )}
-                    </Button>
+                {apiToken ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 flex items-center gap-2 h-9 px-3 rounded-md border border-border bg-muted/30 text-sm">
+                        <span className="font-mono text-muted-foreground truncate flex-1">
+                          {maskedToken}
+                        </span>
+                        {verifyResult === 'valid' && (
+                          <Wifi className="size-4 text-green-500 shrink-0" />
+                        )}
+                        {verifyResult === 'invalid' && (
+                          <WifiOff className="size-4 text-red-500 shrink-0" />
+                        )}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleVerify}
+                        disabled={isVerifying}
+                        className="gap-1.5"
+                      >
+                        {isVerifying ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <Check className="size-3.5" />
+                        )}
+                        Проверить
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={handleRemoveToken}
+                        className="gap-1.5"
+                      >
+                        <X className="size-3.5" />
+                        Удалить
+                      </Button>
+                    </div>
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                      ✓ Токен сохранён в localStorage
+                    </p>
                   </div>
-                  <Button onClick={handleSaveToken} className="gap-1.5">
-                    <Check className="size-3.5" />
-                    Сохранить
-                  </Button>
-                </div>
-                {apiToken && (
-                  <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400">
-                    ✓ Токен сохранён в localStorage
-                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Input
+                          type={showToken ? 'text' : 'password'}
+                          placeholder="sk-or-v1-..."
+                          value={tokenInput}
+                          onChange={(e) => setTokenInput(e.target.value)}
+                          className="pr-10"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleSaveToken();
+                            }
+                          }}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-1 top-1/2 size-7 -translate-y-1/2"
+                          onClick={() => setShowToken(!showToken)}
+                        >
+                          {showToken ? (
+                            <EyeOff className="size-3.5" />
+                          ) : (
+                            <Eye className="size-3.5" />
+                          )}
+                        </Button>
+                      </div>
+                      <Button onClick={handleSaveToken} disabled={!tokenInput.trim()} className="gap-1.5">
+                        <Check className="size-3.5" />
+                        Сохранить
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Бесплатный ключ:{' '}
+                      <a
+                        href="https://openrouter.ai/keys"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
+                      >
+                        openrouter.ai/keys
+                      </a>
+                    </p>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -175,12 +248,25 @@ export function ModelsView() {
                         className="flex items-center justify-between rounded-lg border px-3 py-2"
                       >
                         <div className="flex items-center gap-2">
-                          <X className="size-4 text-rose-500" />
+                          {entry.available ? (
+                            <Wifi className="size-4 text-green-500" />
+                          ) : (
+                            <X className="size-4 text-rose-500" />
+                          )}
                           <span className="text-sm font-medium">{slug}</span>
+                          {entry.reason && (
+                            <Badge variant={entry.reason === 'rate_limited' ? 'secondary' : 'destructive'} className="text-xs">
+                              {entry.reason === 'rate_limited' ? 'Лимит' : entry.reason}
+                            </Badge>
+                          )}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          Лимит до{' '}
-                          {new Date(entry.until).toLocaleTimeString('ru-RU')}
+                          {entry.available && entry.remaining !== null && (
+                            <span>{entry.remaining}/{entry.limit || '?'}</span>
+                          )}
+                          {entry.latency && (
+                            <span className="ml-2">{entry.latency}ms</span>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -197,7 +283,7 @@ export function ModelsView() {
             </Card>
           </motion.div>
 
-          {/* Model List */}
+          {/* Available Models */}
           <motion.div variants={sectionVariants}>
             <Card>
               <CardHeader>
@@ -205,59 +291,58 @@ export function ModelsView() {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-col gap-3">
-                  {models.map((model) => {
-                    const isSelected = selectedModel === model.slug;
-                    const rateLimited = isRateLimited(model.slug);
+                  {availableModels.map((model) => {
+                    const isSelected = currentModel === model.id;
+                    const info = rateLimits[model.id];
+                    const isRateLimited = info?.reason === 'rate_limited';
+                    const isUnavailable = info?.available === false;
                     return (
                       <div
                         key={model.id}
-                        onClick={() => setModel(model.slug)}
+                        onClick={() => setCurrentModel(model.id)}
                         className={`cursor-pointer rounded-lg border p-4 transition-colors ${
                           isSelected
                             ? 'border-primary bg-primary/5'
-                            : rateLimited
-                              ? 'border-rose-200 bg-rose-50/50 dark:border-rose-800 dark:bg-rose-900/10'
-                              : 'hover:bg-muted/50'
+                            : isRateLimited
+                              ? 'border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-900/10'
+                              : isUnavailable
+                                ? 'border-rose-200 bg-rose-50/50 dark:border-rose-800 dark:bg-rose-900/10 opacity-60'
+                                : 'hover:bg-muted/50'
                         }`}
                       >
                         <div className="flex items-start justify-between">
                           <div>
                             <div className="flex items-center gap-2">
                               <h3 className="text-sm font-medium">{model.name}</h3>
-                              {model.isFree ? (
-                                <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                                  <Zap className="mr-1 size-3" />
-                                  Бесплатно
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline">Платная</Badge>
+                              <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                <Zap className="mr-1 size-3" />
+                                Бесплатно
+                              </Badge>
+                              {isRateLimited && (
+                                <Badge variant="secondary" className="text-xs">Лимит</Badge>
                               )}
-                              {rateLimited && (
-                                <Badge variant="destructive" className="text-xs">
-                                  Лимит
-                                </Badge>
+                              {isUnavailable && info?.reason === 'not_found' && (
+                                <Badge variant="destructive" className="text-xs">Недоступна</Badge>
                               )}
                             </div>
-                            <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                              <span>{providerLabels[model.provider] ?? model.provider}</span>
-                              <span>·</span>
-                              <span>
-                                Контекст: {formatContext(model.contextWindow)}
-                              </span>
-                              <span>·</span>
-                              <span>
-                                Макс. токенов: {formatContext(model.maxTokens)}
-                              </span>
-                            </div>
-                            <div className="mt-1 text-xs text-muted-foreground">
-                              ID: {model.modelId}
+                            <div className="mt-1 text-xs text-muted-foreground font-mono">
+                              {model.id}
                             </div>
                           </div>
-                          {isSelected && (
-                            <Badge variant="default" className="shrink-0">
-                              ✓ Активна
-                            </Badge>
-                          )}
+                          <div className="flex items-center gap-2 shrink-0">
+                            {info?.available && info.remaining !== null && info.remaining !== undefined && (
+                              <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                                info.remaining < 5 ? 'bg-amber-500/10 text-amber-600' : 'bg-green-500/10 text-green-600'
+                              }`}>
+                                {info.remaining}/{info.limit || '?'}
+                              </span>
+                            )}
+                            {isSelected && (
+                              <Badge variant="default" className="shrink-0">
+                                ✓ Активна
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );

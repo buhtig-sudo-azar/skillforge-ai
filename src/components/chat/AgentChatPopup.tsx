@@ -7,31 +7,22 @@ import {
   X,
   Send,
   Square,
-  ChevronDown,
   Sparkles,
   Trash2,
+  Minimize2,
+  Maximize2,
+  Shrink,
+  RefreshCw,
+  MessageCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
-import { Badge } from '@/components/ui/badge';
-import { agentPersonas } from '@/data/agent-data';
-import { useChatStore, useChatActions, useChatMessages, useChatIsLoading, useChatError } from '@/store/chat-store';
-import { useModelStore, useSelectedModel, useApiToken, useModelActions } from '@/store/model-store';
+import { agents } from '@/data/agent-data';
+import { useChatStore, useChatActions, useChatMessages, useChatIsLoading, useChatError, useActiveCategory } from '@/store/chat-store';
+import { useNavigationStore, useCurrentCategory } from '@/store/navigation-store';
+import { useModelStore } from '@/store/model-store';
 import { ChatMessage } from './ChatMessage';
 
 // ============================================================
@@ -65,118 +56,40 @@ function LoadingDots() {
 }
 
 // ============================================================
-// Suggested questions chips
-// ============================================================
-function SuggestedQuestions({
-  suggestions,
-  onSelect,
-}: {
-  suggestions: string[];
-  onSelect: (question: string) => void;
-}) {
-  return (
-    <div className="flex flex-wrap gap-2 px-4 py-3">
-      <p className="w-full text-xs font-medium text-muted-foreground mb-1">
-        💡 Попробуйте спросить:
-      </p>
-      {suggestions.map((question, i) => (
-        <motion.button
-          key={i}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: i * 0.08, duration: 0.2 }}
-          onClick={() => onSelect(question)}
-          className="rounded-full border border-border bg-background px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-        >
-          {question}
-        </motion.button>
-      ))}
-    </div>
-  );
-}
-
-// ============================================================
-// Agent selector popover
-// ============================================================
-function AgentSelector({
-  currentAgent,
-  onSelectAgent,
-}: {
-  currentAgent: (typeof agentPersonas)[number];
-  onSelectAgent: (agent: (typeof agentPersonas)[number]) => void;
-}) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-1.5 px-2 text-xs font-normal h-7"
-        >
-          <span>{currentAgent.avatar}</span>
-          <span className="max-w-[100px] truncate">{currentAgent.name}</span>
-          <ChevronDown className="size-3 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-64 p-0" align="start" sideOffset={8}>
-        <Command>
-          <CommandInput placeholder="Поиск агента..." />
-          <CommandList>
-            <CommandEmpty>Агент не найден</CommandEmpty>
-            <CommandGroup heading="Агенты-наставники">
-              {agentPersonas.map((agent) => (
-                <CommandItem
-                  key={agent.id}
-                  value={agent.slug}
-                  onSelect={() => {
-                    onSelectAgent(agent);
-                    setOpen(false);
-                  }}
-                  className="flex items-center gap-2 cursor-pointer"
-                >
-                  <span className="text-base">{agent.avatar}</span>
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium">{agent.name}</span>
-                    <span className="text-xs text-muted-foreground line-clamp-1">
-                      {agent.role}
-                    </span>
-                  </div>
-                  {currentAgent.id === agent.id && (
-                    <Badge variant="secondary" className="ml-auto text-[10px] px-1.5 py-0">
-                      ✓
-                    </Badge>
-                  )}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-// ============================================================
-// Main AgentChatPopup Component
+// Main AgentChatPopup — как в llm-red-team-lab:
+// Агент определяется текущей категорией, ВЫПАДАЮЩИЙ СПИСОК УБРАН
 // ============================================================
 export function AgentChatPopup() {
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
-  const [activeAgent, setActiveAgent] = useState(agentPersonas[0]);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Store hooks
   const messages = useChatMessages();
   const isLoading = useChatIsLoading();
   const chatError = useChatError();
+  const activeCategory = useActiveCategory();
   const chatActions = useChatActions();
-  const selectedModel = useSelectedModel();
-  const apiToken = useApiToken();
+  const currentNavCategory = useCurrentCategory();
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Агент определяется текущей категорией — как в llm-red-team-lab
+  const agent = activeCategory
+    ? agents[activeCategory]
+    : (currentNavCategory ? agents[currentNavCategory] : null);
+  const currentAgent = agent || Object.values(agents)[0];
+  const systemPrompt = agent?.systemPrompt || currentAgent.systemPrompt || '';
+
+  // Когда чат открывается, установить активного агента по текущей категории
+  useEffect(() => {
+    if (isOpen && currentNavCategory && currentNavCategory !== activeCategory) {
+      chatActions.setActiveCategory(currentNavCategory);
+      chatActions.clearChat();
+    }
+  }, [isOpen, currentNavCategory, activeCategory, chatActions]);
 
   // Автопрокрутка к последнему сообщению
   useEffect(() => {
@@ -192,34 +105,17 @@ export function AgentChatPopup() {
     }
   }, [isOpen]);
 
-  // При смене агента — показать приветствие и обновить стейт
-  const handleAgentChange = useCallback(
-    (agent: (typeof agentPersonas)[number]) => {
-      setActiveAgent(agent);
-      chatActions.setAgent(agent.slug);
-      chatActions.clearChat();
-    },
-    [chatActions],
-  );
-
-  // При первом открытии — установить агента и показать приветствие
-  useEffect(() => {
-    if (isOpen && messages.length === 0) {
-      chatActions.setAgent(activeAgent.slug);
-    }
-  }, [isOpen, chatActions, activeAgent.slug, messages.length]);
-
   // Отправка сообщения
   const handleSend = useCallback(() => {
     const trimmed = inputValue.trim();
     if (!trimmed || isLoading) return;
 
-    chatActions.sendMessage(trimmed, activeAgent.systemPrompt, selectedModel, apiToken ?? '');
+    const modelStore = useModelStore.getState();
+    chatActions.sendMessage(trimmed, systemPrompt, modelStore.currentModel, modelStore.apiToken);
     setInputValue('');
 
-    // Возвращаем фокус на поле ввода
     setTimeout(() => inputRef.current?.focus(), 50);
-  }, [inputValue, isLoading, chatActions, activeAgent.systemPrompt, selectedModel, apiToken]);
+  }, [inputValue, isLoading, chatActions, systemPrompt]);
 
   // Обработка нажатия Enter
   const handleKeyDown = useCallback(
@@ -235,9 +131,10 @@ export function AgentChatPopup() {
   // Клик по suggested question
   const handleSuggestionClick = useCallback(
     (question: string) => {
-      chatActions.sendMessage(question, activeAgent.systemPrompt, selectedModel, apiToken ?? '');
+      const modelStore = useModelStore.getState();
+      chatActions.sendMessage(question, systemPrompt, modelStore.currentModel, modelStore.apiToken);
     },
-    [chatActions, activeAgent.systemPrompt, selectedModel, apiToken],
+    [chatActions, systemPrompt],
   );
 
   // Остановка генерации
@@ -250,7 +147,24 @@ export function AgentChatPopup() {
     chatActions.clearChat();
   }, [chatActions]);
 
-  // Проверка, пустой ли чат (только приветствие или нет сообщений)
+  // Закрытие чата
+  const handleClose = useCallback(() => {
+    setIsOpen(false);
+    setIsExpanded(false);
+    chatActions.clearChat();
+  }, [chatActions]);
+
+  // Проверка, является ли последнее сообщение ошибкой
+  const lastAssistantMessage = messages.length > 0
+    ? [...messages].reverse().find(m => m.role === 'assistant')
+    : null;
+  const lastMessageIsError = lastAssistantMessage
+    ? (lastAssistantMessage.content.includes('Не удалось получить ответ') ||
+       lastAssistantMessage.content.includes('Ошибка') ||
+       lastAssistantMessage.content.includes('Все модели') ||
+       lastAssistantMessage.content.includes('ошибка сети'))
+    : false;
+
   const hasRealMessages = messages.length > 0;
 
   return (
@@ -265,10 +179,19 @@ export function AgentChatPopup() {
             exit={{ scale: 0, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 400, damping: 25 }}
             onClick={() => setIsOpen(true)}
-            className="fixed bottom-6 right-6 z-50 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-shadow hover:shadow-xl active:scale-95 sm:bottom-8 sm:right-8"
+            className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2"
             aria-label="Открыть чат с AI-наставником"
           >
-            <MessageSquare className="size-6" />
+            <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded-md border border-primary/20 animate-pulse">
+              AI-наставник
+            </span>
+            <div className="relative group">
+              <span className={`absolute -inset-1.5 rounded-full bg-gradient-to-br ${currentAgent.gradient} opacity-40 group-hover:opacity-70 transition-opacity`} />
+              <span className="relative flex size-14 items-center justify-center rounded-full border-2 border-background shadow-lg bg-primary text-primary-foreground transition-transform group-hover:scale-105">
+                <MessageCircle className="size-6" />
+              </span>
+              <span className="absolute bottom-0 right-0 size-4 bg-green-500 rounded-full border-2 border-background" />
+            </div>
           </motion.button>
         )}
       </AnimatePresence>
@@ -283,137 +206,91 @@ export function AgentChatPopup() {
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 350, damping: 30 }}
             className={cn(
-              // Мобильная версия: полный экран
-              'fixed inset-0 z-50 flex flex-col bg-background sm:inset-auto',
-              // Десктопная версия: плавающая панель
-              'sm:bottom-6 sm:right-6 sm:top-auto sm:left-auto sm:h-[500px] sm:w-[400px] sm:rounded-2xl sm:border sm:border-border sm:shadow-2xl',
-              // Позиция для десктопа
-              'sm:bottom-8 sm:right-8',
+              'fixed z-50 flex flex-col bg-background border border-border shadow-2xl rounded-2xl overflow-hidden transition-all duration-300',
+              isExpanded
+                ? 'sm:bottom-6 sm:right-6 sm:top-6 sm:w-[calc(100vw-3rem)] sm:max-h-[calc(100vh-3rem)] max-sm:inset-3 max-sm:max-h-[calc(100vh-1.5rem)]'
+                : 'sm:bottom-6 sm:right-6 sm:w-[420px] sm:max-h-[600px] max-sm:inset-0 max-sm:max-h-full',
             )}
           >
             {/* ===== Header ===== */}
-            <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-              {/* Аватар и имя */}
-              <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                <div
-                  className={cn(
-                    'flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-lg',
-                    activeAgent.gradient,
-                  )}
-                >
-                  {activeAgent.avatar}
+            <div className="relative flex items-center gap-3 px-4 py-3 border-b border-border">
+              <div className={`absolute inset-0 bg-gradient-to-r ${currentAgent.gradient} opacity-[0.08]`} />
+              <div className="relative flex items-center gap-3 w-full">
+                {/* Аватар */}
+                <div className="relative size-10 rounded-full overflow-hidden border-2 border-white/20 shadow-sm shrink-0 flex items-center justify-center bg-primary/10">
+                  <Sparkles className="size-5 text-primary" />
                 </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="truncate text-sm font-semibold leading-tight">
-                    {activeAgent.name}
-                  </h3>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {activeAgent.role}
-                  </p>
+                {/* Имя и роль */}
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base font-bold text-foreground truncate">{currentAgent.name}</h3>
+                  <p className="text-sm text-muted-foreground truncate">{currentAgent.role}</p>
                 </div>
-              </div>
-
-              {/* Действия */}
-              <div className="flex items-center gap-1">
-                <AgentSelector
-                  currentAgent={activeAgent}
-                  onSelectAgent={handleAgentChange}
-                />
-                {hasRealMessages && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-8 text-muted-foreground hover:text-destructive"
-                    onClick={handleClearChat}
-                    aria-label="Очистить чат"
-                  >
-                    <Trash2 className="size-4" />
+                {/* Действия */}
+                <div className="flex items-center gap-0.5 shrink-0">
+                  <Button variant="ghost" size="icon" className="size-7 hover:bg-muted" onClick={() => setIsExpanded(prev => !prev)}>
+                    {isExpanded ? <Shrink className="size-3.5" /> : <Maximize2 className="size-3.5" />}
                   </Button>
-                )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-8 text-muted-foreground"
-                  onClick={() => setIsOpen(false)}
-                  aria-label="Закрыть чат"
-                >
-                  <X className="size-4" />
-                </Button>
+                  <Button variant="ghost" size="icon" className="size-7 hover:bg-muted" onClick={handleClose}>
+                    <X className="size-3.5" />
+                  </Button>
+                </div>
               </div>
             </div>
 
             {/* ===== Messages Area ===== */}
-            <div className="flex-1 overflow-hidden">
-              <ScrollArea className="h-full">
-                <div className="flex flex-col gap-1 py-4">
-                  {/* Приветственное сообщение агента (если чат пустой) */}
-                  {!hasRealMessages && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      {/* Greeting message */}
-                      <ChatMessage
-                        message={{
-                          id: 'greeting',
-                          role: 'assistant',
-                          content: activeAgent.greeting,
-                          model: 'system',
-                          timestamp: new Date(),
-                        }}
-                        agentAvatar={activeAgent.avatar}
-                      />
-                      {/* Suggested questions */}
-                      <SuggestedQuestions
-                        suggestions={activeAgent.suggestions}
-                        onSelect={handleSuggestionClick}
-                      />
-                    </motion.div>
-                  )}
-
-                  {/* Реальные сообщения */}
+            <div ref={messagesEndRef} className="flex-1 overflow-y-auto p-3 min-h-0">
+              {!hasRealMessages ? (
+                <div className="flex flex-col items-center justify-center py-6 px-4 text-center">
+                  <div className="relative size-16 rounded-full overflow-hidden border-2 border-primary/20 shadow-md mb-3 flex items-center justify-center bg-primary/10">
+                    <Sparkles className="size-8 text-primary" />
+                  </div>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Sparkles className="size-3.5 text-primary" />
+                    <p className="text-base font-semibold">{currentAgent.name}</p>
+                  </div>
+                  <p className="text-base text-muted-foreground leading-relaxed max-w-[280px] mb-4">
+                    {currentAgent.greeting}
+                  </p>
+                  <div className="w-full max-w-[280px] space-y-1.5">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Попробуйте спросить</p>
+                    {currentAgent.suggestions?.map((s, i) => (
+                      <button
+                        key={i}
+                        onClick={() => handleSuggestionClick(s)}
+                        disabled={isLoading}
+                        className="w-full text-left text-sm px-3 py-2 rounded-lg border border-border hover:border-primary/40 hover:bg-primary/5 transition-colors text-muted-foreground hover:text-foreground disabled:opacity-50"
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
                   {messages.map((msg) => (
                     <ChatMessage
                       key={msg.id}
                       message={msg}
-                      agentAvatar={activeAgent.avatar}
+                      agentAvatar={currentAgent.avatar}
                     />
                   ))}
-
-                  {/* Индикатор загрузки */}
-                  {isLoading && messages[messages.length - 1]?.content === '' && (
+                  {isLoading && (
                     <LoadingDots />
                   )}
-
-                  {/* Ошибка */}
-                  {chatError && !isLoading && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="mx-4 my-2 rounded-lg border border-destructive/20 bg-destructive/5 p-3"
-                    >
-                      <p className="text-xs text-destructive">{chatError}</p>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="mt-1.5 h-7 gap-1 text-xs text-muted-foreground"
-                        onClick={() => chatActions.retryLastMessage()}
-                      >
+                  {!isLoading && lastMessageIsError && (
+                    <div className="flex justify-center pt-1">
+                      <Button variant="outline" size="sm" onClick={() => chatActions.retryLastMessage()} className="gap-1.5 text-xs">
+                        <RefreshCw className="size-3" />
                         Попробовать снова
                       </Button>
-                    </motion.div>
+                    </div>
                   )}
-
-                  {/* Якорь для автоскролла */}
-                  <div ref={messagesEndRef} />
                 </div>
-              </ScrollArea>
+              )}
             </div>
 
             {/* ===== Input Area ===== */}
             <div className="border-t border-border px-4 py-3">
-              {/* Кнопка остановки генерации */}
               {isLoading && (
                 <div className="mb-2 flex justify-center">
                   <Button
@@ -439,6 +316,17 @@ export function AgentChatPopup() {
                   className="flex-1 text-sm"
                   aria-label="Поле ввода сообщения"
                 />
+                {hasRealMessages && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-9 text-muted-foreground hover:text-destructive shrink-0"
+                    onClick={handleClearChat}
+                    aria-label="Очистить чат"
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                )}
                 <Button
                   size="icon"
                   onClick={handleSend}

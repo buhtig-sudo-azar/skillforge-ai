@@ -1,6 +1,5 @@
 import { NextRequest } from 'next/server';
 
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
 const PRIMARY_MODEL = 'google/gemma-3-27b-it:free';
 const FALLBACK_MODELS = [
   'meta-llama/llama-4-maverick:free',
@@ -52,7 +51,7 @@ export async function POST(req: NextRequest) {
     return new Response(JSON.stringify({ error: 'Неверный формат запроса' }), { status: 400 });
   }
 
-  const { messages, model: requestedModel, stream: shouldStream = true } = body;
+  const { messages, model: requestedModel, stream: shouldStream = true, apiToken } = body;
 
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return new Response(
@@ -61,6 +60,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Приоритет: пользовательский токен → env-переменная
+  const apiKey = apiToken || process.env.OPENROUTER_API_KEY || '';
+
   // Determine models to try with fallback
   const modelsToTry = requestedModel && requestedModel !== 'auto'
     ? [requestedModel, ...FALLBACK_MODELS]
@@ -68,8 +70,6 @@ export async function POST(req: NextRequest) {
 
   for (const model of modelsToTry) {
     try {
-      const apiKey = OPENROUTER_API_KEY;
-
       if (!apiKey) {
         // No API key configured — skip OpenRouter, try next
         continue;
@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
 
   // All models failed — return a helpful fallback response
   // Return a simulated streaming response so the UI still works
-  const fallbackContent = 'Извините, все модели временно недоступны. Пожалуйста, попробуйте позже или переключитесь в образовательный режим в песочнице.';
+  const fallbackContent = 'Извините, все модели временно недоступны. Пожалуйста, попробуйте позже или добавьте свой OpenRouter API-токен в настройках модели.';
 
   if (shouldStream) {
     const encoder = new TextEncoder();

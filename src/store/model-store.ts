@@ -1,179 +1,261 @@
 import { create } from 'zustand';
 
 // Ключи для localStorage
-const STORAGE_API_TOKEN = 'ai-platform-api-token';
-const STORAGE_RATE_LIMITS = 'ai-platform-rate-limits';
+const STORAGE_MODEL = 'skillforge-ai-model';
+const STORAGE_TOKEN = 'skillforge-ai-api-token';
+const STORAGE_RATE_LIMITS = 'skillforge-ai-rate-limits';
 
 // Время жизни записи о лимите: 10 минут
 const RATE_LIMIT_TTL_MS = 10 * 60 * 1000;
 
-interface RateLimitEntry {
-  limited: boolean;
-  until: number; // timestamp ms
+const DEFAULT_MODEL = 'google/gemma-3-27b-it:free';
+
+export interface ModelRateLimit {
+  available: boolean;
+  reason?: 'rate_limited' | 'not_found' | 'invalid_token' | 'insufficient_credits' | 'error' | null;
+  remaining?: number | null;
+  limit?: number | null;
+  reset?: string | null;
+  latency?: number | null;
+  checkedAt?: number;
 }
 
-interface ModelActions {
-  setModel: (model: string) => void;
-  setApiToken: (token: string | null) => void;
-  fetchFreeModels: () => Promise<void>;
-  checkRateLimit: (modelSlug: string) => Promise<void>;
-  isRateLimited: (modelSlug: string) => boolean;
+export interface FreeModel {
+  id: string;
+  name: string;
+  label: string;
 }
 
-interface ModelStoreState {
-  selectedModel: string;
-  apiToken: string | null;
-  freeModels: string[];
-  rateLimits: Record<string, RateLimitEntry>;
-  isLoading: boolean;
-  actions: ModelActions;
+interface ModelState {
+  currentModel: string;
+  apiToken: string;
+  availableModels: FreeModel[];
+  isLoadingModels: boolean;
+  modelsError: string | null;
+  isCheckingAll: boolean;
+  rateLimits: Record<string, ModelRateLimit>;
+  setCurrentModel: (model: string) => void;
+  setApiToken: (token: string) => void;
+  clearApiToken: () => void;
+  fetchAvailableModels: () => Promise<void>;
+  checkModel: (modelId: string) => Promise<ModelRateLimit>;
+  checkAllModels: () => Promise<void>;
+  markModelRateLimited: (modelId: string) => void;
+  getModelForRequest: () => string;
+  getTokenForRequest: () => string;
+  getRateLimit: (modelId: string) => ModelRateLimit | undefined;
+  _hydrate: () => void;
 }
 
-// Вспомогательные функции для localStorage
-function loadRateLimits(): Record<string, RateLimitEntry> {
-  if (typeof window === 'undefined') return {};
+// ============================================================
+// localStorage helpers
+// ============================================================
+
+function loadModelFromStorage(): string {
+  if (typeof window === 'undefined') return DEFAULT_MODEL;
   try {
-    const raw = localStorage.getItem(STORAGE_RATE_LIMITS);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as Record<string, RateLimitEntry>;
-    // Удаляем устаревшие записи
-    const now = Date.now();
-    const cleaned: Record<string, RateLimitEntry> = {};
-    for (const [key, entry] of Object.entries(parsed)) {
-      if (entry.until > now) {
-        cleaned[key] = entry;
-      }
+    const data = localStorage.getItem(STORAGE_MODEL);
+    if (data) {
+      const parsed = JSON.parse(data);
+      return parsed.currentModel || DEFAULT_MODEL;
     }
-    return cleaned;
-  } catch {
-    return {};
-  }
+  } catch {}
+  return DEFAULT_MODEL;
 }
 
-function saveRateLimits(limits: Record<string, RateLimitEntry>): void {
+function saveModelToStorage(model: string) {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(STORAGE_RATE_LIMITS, JSON.stringify(limits));
-  } catch {
-    // Игнорируем ошибки записи в localStorage
-  }
+    localStorage.setItem(STORAGE_MODEL, JSON.stringify({ currentModel: model }));
+  } catch {}
 }
 
-function loadApiToken(): string | null {
-  if (typeof window === 'undefined') return null;
+function loadTokenFromStorage(): string {
+  if (typeof window === 'undefined') return '';
   try {
-    return localStorage.getItem(STORAGE_API_TOKEN);
-  } catch {
-    return null;
-  }
+    return localStorage.getItem(STORAGE_TOKEN) || '';
+  } catch {}
+  return '';
 }
 
-function saveApiToken(token: string | null): void {
+function saveTokenToStorage(token: string) {
   if (typeof window === 'undefined') return;
   try {
     if (token) {
-      localStorage.setItem(STORAGE_API_TOKEN, token);
+      localStorage.setItem(STORAGE_TOKEN, token);
     } else {
-      localStorage.removeItem(STORAGE_API_TOKEN);
+      localStorage.removeItem(STORAGE_TOKEN);
     }
-  } catch {
-    // Игнорируем ошибки записи
-  }
+  } catch {}
 }
 
-export const useModelStore = create<ModelStoreState>()((set, get) => ({
-  selectedModel: 'auto',
-  apiToken: loadApiToken(),
-  freeModels: [],
-  rateLimits: loadRateLimits(),
-  isLoading: false,
-
-  actions: {
-    setModel: (model) => set({ selectedModel: model }),
-
-    setApiToken: (token) => {
-      saveApiToken(token);
-      set({ apiToken: token });
-    },
-
-    fetchFreeModels: async () => {
-      set({ isLoading: true });
-      try {
-        const response = await fetch('/api/models/free');
-        if (!response.ok) {
-          throw new Error('Не удалось загрузить список бесплатных моделей');
+function loadRateLimitsFromStorage(): Record<string, ModelRateLimit> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const data = localStorage.getItem(STORAGE_RATE_LIMITS);
+    if (data) {
+      const parsed = JSON.parse(data);
+      const now = Date.now();
+      const cleaned: Record<string, ModelRateLimit> = {};
+      for (const [key, val] of Object.entries(parsed)) {
+        const rl = val as ModelRateLimit;
+        if (rl.checkedAt && now - rl.checkedAt < RATE_LIMIT_TTL_MS) {
+          cleaned[key] = rl;
         }
-        const data = await response.json();
-        const models: string[] = Array.isArray(data)
-          ? data.map((m: { slug?: string; modelId?: string; id?: string } | string) =>
-              typeof m === 'string' ? m : m.slug ?? m.modelId ?? m.id ?? '',
-            ).filter(Boolean)
-          : [];
-        set({ freeModels: models });
-      } catch {
-        // При ошибке оставляем пустой список бесплатных моделей
-        set({ freeModels: [] });
-      } finally {
-        set({ isLoading: false });
       }
-    },
+      return cleaned;
+    }
+  } catch {}
+  return {};
+}
 
-    checkRateLimit: async (modelSlug) => {
-      try {
-        const { apiToken } = get();
-        const response = await fetch(`/api/models/rate-limit?model=${encodeURIComponent(modelSlug)}`, {
-          headers: apiToken ? { Authorization: `Bearer ${apiToken}` } : {},
-        });
+function saveRateLimitsToStorage(limits: Record<string, ModelRateLimit>) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_RATE_LIMITS, JSON.stringify(limits));
+  } catch {}
+}
 
-        if (!response.ok) return;
+// ============================================================
+// Store
+// ============================================================
 
-        const data = await response.json();
-        const now = Date.now();
+export const useModelStore = create<ModelState>((set, get) => ({
+  currentModel: DEFAULT_MODEL,
+  apiToken: '',
+  availableModels: [],
+  isLoadingModels: false,
+  modelsError: null,
+  isCheckingAll: false,
+  rateLimits: {},
 
-        set((state) => {
-          const updated = { ...state.rateLimits };
-          if (data.limited) {
-            // Записываем лимит с TTL 10 минут
-            updated[modelSlug] = {
-              limited: true,
-              until: data.until ?? now + RATE_LIMIT_TTL_MS,
-            };
-          } else {
-            // Если лимита нет — убираем запись
-            delete updated[modelSlug];
-          }
-          saveRateLimits(updated);
-          return { rateLimits: updated };
-        });
-      } catch {
-        // Тихо игнорируем ошибку проверки лимита
+  setCurrentModel: (model) => {
+    saveModelToStorage(model);
+    set({ currentModel: model });
+  },
+
+  setApiToken: (token) => {
+    saveTokenToStorage(token);
+    set({ apiToken: token });
+  },
+
+  clearApiToken: () => {
+    saveTokenToStorage('');
+    set({ apiToken: '' });
+  },
+
+  fetchAvailableModels: async () => {
+    if (get().isLoadingModels) return;
+    if (get().availableModels.length > 0) return;
+
+    set({ isLoadingModels: true, modelsError: null });
+
+    try {
+      const res = await fetch('/api/models');
+      if (!res.ok) {
+        throw new Error('Не удалось загрузить список моделей');
       }
-    },
+      const data = await res.json();
+      const models: FreeModel[] = data.models || [];
+      set({ availableModels: models, isLoadingModels: false });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Ошибка загрузки моделей';
+      set({ modelsError: msg, isLoadingModels: false });
+    }
+  },
 
-    isRateLimited: (modelSlug) => {
-      const { rateLimits } = get();
-      const entry = rateLimits[modelSlug];
-      if (!entry) return false;
-      // Проверяем, не истёк ли лимит
-      if (Date.now() >= entry.until) {
-        // Устаревшая запись — удаляем
-        set((state) => {
-          const updated = { ...state.rateLimits };
-          delete updated[modelSlug];
-          saveRateLimits(updated);
-          return { rateLimits: updated };
-        });
-        return false;
+  checkModel: async (modelId: string): Promise<ModelRateLimit> => {
+    try {
+      const body: Record<string, string> = { model: modelId };
+      const token = get().apiToken;
+      if (token) body.apiToken = token;
+
+      const res = await fetch('/api/models/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const info: ModelRateLimit = {
+          available: false,
+          reason: 'error',
+          checkedAt: Date.now(),
+        };
+        const updated = { ...get().rateLimits, [modelId]: info };
+        saveRateLimitsToStorage(updated);
+        set({ rateLimits: updated });
+        return info;
       }
-      return entry.limited;
-    },
+
+      const data = await res.json();
+      const info: ModelRateLimit = {
+        available: data.available,
+        reason: data.reason || null,
+        remaining: data.rateLimit?.remaining ?? null,
+        limit: data.rateLimit?.limit ?? null,
+        reset: data.rateLimit?.reset ?? null,
+        latency: data.latency ?? null,
+        checkedAt: Date.now(),
+      };
+
+      const updated = { ...get().rateLimits, [modelId]: info };
+      saveRateLimitsToStorage(updated);
+      set({ rateLimits: updated });
+      return info;
+    } catch {
+      const info: ModelRateLimit = {
+        available: false,
+        reason: 'error',
+        checkedAt: Date.now(),
+      };
+      const updated = { ...get().rateLimits, [modelId]: info };
+      saveRateLimitsToStorage(updated);
+      set({ rateLimits: updated });
+      return info;
+    }
+  },
+
+  checkAllModels: async () => {
+    if (get().isCheckingAll) return;
+    set({ isCheckingAll: true });
+
+    const models = get().availableModels;
+    for (const model of models) {
+      await get().checkModel(model.id);
+      await new Promise((r) => setTimeout(r, 200));
+    }
+
+    set({ isCheckingAll: false });
+  },
+
+  markModelRateLimited: (modelId: string) => {
+    const info: ModelRateLimit = {
+      available: false,
+      reason: 'rate_limited',
+      checkedAt: Date.now(),
+    };
+    const updated = { ...get().rateLimits, [modelId]: info };
+    saveRateLimitsToStorage(updated);
+    set({ rateLimits: updated });
+  },
+
+  getModelForRequest: () => get().currentModel,
+
+  getTokenForRequest: () => get().apiToken,
+
+  getRateLimit: (modelId: string) => get().rateLimits[modelId],
+
+  _hydrate: () => {
+    const model = loadModelFromStorage();
+    const rateLimits = loadRateLimitsFromStorage();
+    const apiToken = loadTokenFromStorage();
+    set({ currentModel: model, rateLimits, apiToken });
   },
 }));
 
 // Селекторы
-export const useSelectedModel = () => useModelStore((s) => s.selectedModel);
+export const useSelectedModel = () => useModelStore((s) => s.currentModel);
 export const useApiToken = () => useModelStore((s) => s.apiToken);
-export const useFreeModels = () => useModelStore((s) => s.freeModels);
+export const useFreeModels = () => useModelStore((s) => s.availableModels);
 export const useRateLimits = () => useModelStore((s) => s.rateLimits);
-export const useModelIsLoading = () => useModelStore((s) => s.isLoading);
-export const useModelActions = () => useModelStore((s) => s.actions);

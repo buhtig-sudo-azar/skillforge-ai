@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { ChatMessage } from '@/types';
+import { agents } from '@/data/agent-data';
 
 // Утилита для генерации уникальных идентификаторов
 const uid = () => crypto.randomUUID();
@@ -13,14 +14,14 @@ interface ChatActions {
   ) => Promise<void>;
   retryLastMessage: () => Promise<void>;
   clearChat: () => void;
-  setAgent: (agentSlug: string) => void;
+  setActiveCategory: (category: string | null) => void;
   stopGeneration: () => void;
 }
 
 interface ChatStoreState {
   messages: ChatMessage[];
   isLoading: boolean;
-  currentAgent: string | null;
+  activeCategory: string | null;
   currentModel: string;
   error: string | null;
   abortController: AbortController | null;
@@ -49,7 +50,6 @@ async function parseSSEStream(
 
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
-      // Оставляем последнюю неполную строку в буфере
       buffer = lines.pop() ?? '';
 
       for (const line of lines) {
@@ -81,7 +81,6 @@ async function parseSSEStream(
               onToken(token);
             }
           } catch {
-            // Если не JSON — считаем простым текстовым токеном
             onToken(payload);
           }
         }
@@ -95,7 +94,7 @@ async function parseSSEStream(
 export const useChatStore = create<ChatStoreState>()((set, get) => ({
   messages: [],
   isLoading: false,
-  currentAgent: null,
+  activeCategory: null,
   currentModel: 'auto',
   error: null,
   abortController: null,
@@ -150,12 +149,12 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(apiToken ? { Authorization: `Bearer ${apiToken}` } : {}),
           },
           body: JSON.stringify({
             messages: apiMessages,
             model,
             stream: true,
+            apiToken,
           }),
           signal: controller.signal,
         });
@@ -214,7 +213,7 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
     },
 
     retryLastMessage: async () => {
-      const { messages, actions } = get();
+      const { messages, actions, activeCategory } = get();
       if (messages.length === 0) return;
 
       // Находим последнее сообщение пользователя
@@ -240,12 +239,19 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
 
       set({ messages: trimmed, error: null });
 
-      // Повторяем отправку с текущими параметрами
+      // Получаем системный промпт текущего активного агента
+      const agent = activeCategory ? agents[activeCategory] : null;
+      const systemPrompt = agent?.systemPrompt || 'Ты — ИИ-наставник по AI-инженерии. Помогай ученикам разобраться в сложных темах, давай понятные объяснения на русском языке.';
+
+      // Повторяем отправку с токеном из model-store
+      const { useModelStore } = await import('@/store/model-store');
+      const modelStore = useModelStore.getState();
+
       await actions.sendMessage(
         lastUserContent,
-        'Ты — ИИ-наставник по инженерии промптов и AI-агентов. Помогай ученикам разобраться в сложных темах, давай понятные объяснения на русском языке.',
-        get().currentModel,
-        '',
+        systemPrompt,
+        modelStore.currentModel,
+        modelStore.apiToken,
       );
     },
 
@@ -257,7 +263,7 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
         abortController: null,
       }),
 
-    setAgent: (agentSlug) => set({ currentAgent: agentSlug }),
+    setActiveCategory: (category) => set({ activeCategory: category }),
 
     stopGeneration: () => {
       const { abortController } = get();
@@ -273,6 +279,6 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
 export const useChatMessages = () => useChatStore((s) => s.messages);
 export const useChatIsLoading = () => useChatStore((s) => s.isLoading);
 export const useChatError = () => useChatStore((s) => s.error);
-export const useCurrentAgent = () => useChatStore((s) => s.currentAgent);
+export const useActiveCategory = () => useChatStore((s) => s.activeCategory);
 export const useCurrentModel = () => useChatStore((s) => s.currentModel);
 export const useChatActions = () => useChatStore((s) => s.actions);
