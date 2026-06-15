@@ -3,7 +3,6 @@
 import { useTheme } from 'next-themes';
 import { motion } from 'framer-motion';
 import {
-  Search,
   Sun,
   Moon,
   Menu,
@@ -43,16 +42,6 @@ export function Header() {
       <div className="flex-1 min-w-0 overflow-hidden">
         <AppBreadcrumbs />
       </div>
-
-      {/* Поиск — скрыт на мобильных */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className="hidden sm:inline-flex size-9 shrink-0">
-            <Search className="size-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Поиск</TooltipContent>
-      </Tooltip>
 
       {/* Селектор модели — скрыт на мобильных */}
       <div className="hidden sm:block shrink-0">
