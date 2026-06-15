@@ -4,7 +4,6 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft,
   BookOpen,
-  FlaskConical,
   GitBranch,
   Layers,
   Signal,
@@ -16,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { topics, categoryGradients } from '@/data/topics';
-import type { Subtopic, DiagramType, SandboxType } from '@/types';
+import type { Subtopic, DiagramType } from '@/types';
 
 // ── helpers ──────────────────────────────────────────────────
 
@@ -41,22 +40,12 @@ const diagramTypeLabel: Record<DiagramType, string> = {
   'knowledge-map': 'Карта знаний',
 };
 
-const sandboxTypeLabel: Record<SandboxType, string> = {
-  prompt: 'Промпт',
-  agent: 'Агент',
-  tool: 'Инструмент',
-  mcp: 'MCP',
-  rag: 'RAG',
-  workflow: 'Воркфлоу',
-  architecture: 'Архитектура',
-};
-
 const diagramIcon: Record<DiagramType, React.ReactNode> = {
   flow: <GitBranch className="size-3" />,
   tree: <Layers className="size-3" />,
   graph: <Signal className="size-3" />,
   'cause-effect': <Zap className="size-3" />,
-  'attack-tree': <FlaskConical className="size-3" />,
+  'attack-tree': <Zap className="size-3" />,
   'knowledge-map': <BookOpen className="size-3" />,
 };
 
@@ -238,8 +227,6 @@ function SubtopicCard({
 }: SubtopicCardProps) {
   const diff = difficultyLabel(subtopic.order);
   const hasDiagram = !!subtopic.diagramType;
-  const hasSandbox = !!subtopic.sandboxType;
-
   return (
     <motion.div variants={cardVariants}>
       <Card
@@ -287,17 +274,6 @@ function SubtopicCard({
               >
                 {diagramIcon[subtopic.diagramType]}
                 {diagramTypeLabel[subtopic.diagramType]}
-              </Badge>
-            )}
-
-            {/* sandbox type */}
-            {hasSandbox && subtopic.sandboxType && (
-              <Badge
-                variant="outline"
-                className="gap-1 text-[11px] font-normal"
-              >
-                <FlaskConical className="size-3" />
-                {sandboxTypeLabel[subtopic.sandboxType]}
               </Badge>
             )}
 
