@@ -1,0 +1,362 @@
+// AI Engineering Platform — Full Database Schema
+// ALL IS SKILL principle: every entity is a Skill or composition of Skills
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:../db/custom.db"
+}
+
+// ============================================================
+// CORE: User & Progress
+// ============================================================
+
+model User {
+  id        String   @id @default(uuid())
+  name      String?
+  email     String?  @unique
+  avatar    String?
+  role      String   @default("student") // student, instructor, admin
+  createdAt DateTime @default(now())
+
+  progress      Progress[]
+  achievements  UserAchievement[]
+  skillResults  SkillResult[]
+  chatSessions  ChatSession[]
+  sandboxRuns   SandboxRun[]
+  securityLogs  SecurityLog[]
+}
+
+model Progress {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  topicSlug    String   // category/topic identifier
+  subtopicSlug String?  // subtopic identifier
+  completed    Boolean  @default(false)
+  xp           Int      @default(0)
+  level        Int      @default(1)
+  streak       Int      @default(0)
+  lastVisited  DateTime @default(now())
+  completedAt  DateTime?
+
+  @@unique([userId, topicSlug, subtopicSlug])
+}
+
+model Achievement {
+  id          String @id @default(uuid())
+  slug        String @unique
+  title       String
+  description String
+  icon        String
+  category    String // skill, lesson, sandbox, chat, workflow
+  xpReward    Int    @default(50)
+
+  userAchievements UserAchievement[]
+}
+
+model UserAchievement {
+  id            String      @id @default(uuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id])
+  achievementId String
+  achievement   Achievement @relation(fields: [achievementId], references: [id])
+  earnedAt      DateTime    @default(now())
+
+  @@unique([userId, achievementId])
+}
+
+// ============================================================
+// SKILL ENGINE
+// ============================================================
+
+model Skill {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  name        String
+  description String
+  category    String   // prompt, agent, tool, mcp, rag, workflow, architecture
+  level       String   @default("beginner") // beginner, intermediate, advanced
+  yamlFront   String?  // YAML frontmatter content
+  body        String   // SKILL.md body content (Markdown)
+  tags        String?  // comma-separated tags
+  version     Int      @default(1)
+  isPublic    Boolean  @default(true)
+  authorId    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  templates  SkillTemplate[]
+  examples   SkillExample[]
+  results    SkillResult[]
+}
+
+model SkillTemplate {
+  id        String @id @default(uuid())
+  skillId   String
+  skill     Skill   @relation(fields: [skillId], references: [id])
+  name      String
+  content   String // template content
+  language  String? // programming language if applicable
+  order     Int    @default(0)
+}
+
+model SkillExample {
+  id        String @id @default(uuid())
+  skillId   String
+  skill     Skill   @relation(fields: [skillId], references: [id])
+  title     String
+  input     String
+  output    String
+  order     Int     @default(0)
+}
+
+model SkillResult {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  skillId    String
+  skill      Skill    @relation(fields: [skillId], references: [id])
+  passed     Boolean
+  score      Int      @default(0) // 0-100
+  feedback   String?
+  createdAt  DateTime @default(now())
+}
+
+// ============================================================
+// LESSON ENGINE
+// ============================================================
+
+model Topic {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  title       String
+  description String
+  icon        String?
+  gradient    String?  // CSS gradient for visual
+  order       Int      @default(0)
+  category    String   // skills, agents, chatbots, sandboxes, workflows, mcp, rag
+  isPublic    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  subtopics Subtopic[]
+}
+
+model Subtopic {
+  id          String   @id @default(uuid())
+  topicId     String
+  topic       Topic    @relation(fields: [topicId], references: [id])
+  slug        String
+  title       String
+  order       Int      @default(0)
+
+  // 6-section educational structure
+  introduction   String? // JSON: { what, why, where, problem }
+  theory         String? // JSON: { terms, principles, architecture, connections }
+  diagramType    String? // flow, tree, graph, cause-effect, attack-tree, knowledge-map
+  diagramData    String? // JSON diagram specification
+  examples       String? // JSON array of { title, code, language, explanation }
+  sandboxType    String? // prompt, agent, tool, mcp, rag, workflow, architecture
+  sandboxConfig  String? // JSON sandbox configuration
+  commonMistakes String? // JSON array of { error, explanation, correct }
+
+  @@unique([topicId, slug])
+}
+
+// ============================================================
+// CHATBOT ENGINE
+// ============================================================
+
+model AgentPersona {
+  id          String @id @default(uuid())
+  slug        String @unique
+  name        String
+  role        String
+  avatar      String? // emoji or icon name
+  gradient    String? // CSS gradient
+  greeting    String
+  systemPrompt String
+  suggestions  String? // JSON array of 3 suggested questions
+  category    String
+  order       Int    @default(0)
+}
+
+model ChatSession {
+  id         String   @id @default(uuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  agentSlug  String
+  model      String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  messages ChatMessage[]
+}
+
+model ChatMessage {
+  id        String      @id @default(uuid())
+  sessionId String
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role      String      // system, user, assistant
+  content   String
+  model     String?
+  tokens    Int?
+  createdAt DateTime    @default(now())
+}
+
+// ============================================================
+// SANDBOX ENGINE
+// ============================================================
+
+model SandboxConfig {
+  id          String @id @default(uuid())
+  slug        String @unique
+  type        String // prompt, agent, tool, mcp, rag, workflow, architecture
+  title       String
+  description String
+  presets     String? // JSON array of preset payloads
+  systemPrompt String?
+  mode        String @default("educational") // educational, advanced
+}
+
+model SandboxRun {
+  id          String   @id @default(uuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  sandboxSlug String
+  input       String
+  output      String?
+  systemPrompt String?
+  model       String?
+  success     Boolean?
+  feedback    String?
+  createdAt   DateTime @default(now())
+}
+
+// ============================================================
+// AGENT ENGINE
+// ============================================================
+
+model AgentTemplate {
+  id           String @id @default(uuid())
+  slug         String @unique
+  name         String
+  description  String
+  skills       String? // JSON array of skill slugs
+  systemPrompt String
+  tools        String? // JSON array of tool definitions
+  mode         String @default("educational") // educational, advanced
+  isPublic     Boolean @default(true)
+}
+
+// ============================================================
+// WORKFLOW ENGINE
+// ============================================================
+
+model WorkflowTemplate {
+  id          String @id @default(uuid())
+  slug        String @unique
+  name        String
+  description String
+  nodes       String // JSON: workflow node definitions
+  edges       String // JSON: workflow edge definitions
+  mode        String @default("educational")
+  isPublic    Boolean @default(true)
+}
+
+// ============================================================
+// MCP ENGINE
+// ============================================================
+
+model MCPServer {
+  id          String @id @default(uuid())
+  slug        String @unique
+  name        String
+  description String
+  command     String // command to start the server
+  args        String? // JSON array of args
+  env         String? // JSON object of env vars
+  tools       String? // JSON: available tools from this server
+  mode        String @default("educational")
+}
+
+// ============================================================
+// RAG ENGINE
+// ============================================================
+
+model KnowledgeBase {
+  id          String @id @default(uuid())
+  slug        String @unique
+  name        String
+  description String
+  documents   String? // JSON array of document metadata
+  chunkSize   Int    @default(512)
+  overlap     Int    @default(50)
+  embedding   String @default("local") // local, openai, etc.
+}
+
+model Document {
+  id         String       @id @default(uuid())
+  baseSlug   String
+  title      String
+  content    String
+  source     String?      // URL or file path
+  chunks     String?      // JSON array of chunk texts
+  createdAt  DateTime     @default(now())
+}
+
+// ============================================================
+// MODEL SYSTEM
+// ============================================================
+
+model ModelConfig {
+  id           String  @id @default(uuid())
+  slug         String  @unique
+  name         String
+  provider     String  // openrouter, openai, anthropic, local
+  modelId      String  // API model identifier
+  isFree       Boolean @default(false)
+  contextWindow Int?
+  maxTokens    Int?
+  enabled      Boolean @default(true)
+}
+
+// ============================================================
+// SECURITY ENGINE
+// ============================================================
+
+model SecurityRule {
+  id          String @id @default(uuid())
+  slug        String @unique
+  name        String
+  description String
+  category    String // input-validation, output-filter, rate-limit, auth, data-protection
+  severity    String @default("medium") // low, medium, high, critical
+  pattern     String? // regex or rule pattern
+  action      String // block, warn, log, sanitize
+  enabled     Boolean @default(true)
+}
+
+model SecurityLog {
+  id         String   @id @default(uuid())
+  ruleId     String?
+  action     String
+  input      String?
+  result     String?
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  createdAt  DateTime @default(now())
+}
+
+// ============================================================
+// ADMIN
+// ============================================================
+
+model SystemConfig {
+  id    String @id @default(uuid())
+  key   String @unique
+  value String
+}
