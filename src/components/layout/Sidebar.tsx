@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
+import { topics } from '@/data/topics';
 import type { ViewType } from '@/types';
 
 interface NavItem {
@@ -99,16 +100,14 @@ export function Sidebar() {
     return false;
   };
 
-  // Подкатегории для демонстрации (позже загрузятся из данных)
-  const subtopicMap: Record<string, string[]> = {
-    skills: ['Промпт-инжиниринг', 'Инструменты', 'Архитектура'],
-    agents: ['ReAct-агенты', 'Мультиагенты', 'Планирование'],
-    chatbots: ['Системные промпты', 'RAG-чат', 'Персоны'],
-    sandboxes: ['Промпты', 'Агенты', 'Инструменты'],
-    workflows: ['Триггеры', 'Условия', 'Пайплайны'],
-    mcp: ['Серверы', 'Инструменты', 'Интеграции'],
-    rag: ['Базы знаний', 'Чанки', 'Эмбеддинги'],
-  };
+  // Подкатегории загружаются из реальных данных topics.ts
+  const subtopicMap: Record<string, { slug: string; title: string }[]> = {};
+  for (const topic of topics) {
+    subtopicMap[topic.slug] = topic.subtopics.map((st) => ({
+      slug: st.slug,
+      title: st.title,
+    }));
+  }
 
   const sidebarWidth = collapsed ? 'w-16' : 'w-64';
 
@@ -252,16 +251,16 @@ export function Sidebar() {
                         <div className="ml-5 flex flex-col gap-0.5 border-l pl-2 py-1">
                           {subtopicMap[item.category!]?.map((sub) => (
                             <Button
-                              key={sub}
+                              key={sub.slug}
                               variant="ghost"
                               size="sm"
                               className="h-7 justify-start px-2 text-xs text-muted-foreground hover:text-foreground"
                               onClick={() => {
-                                navigate('topic', item.category, sub);
+                                navigate('topic', item.category, sub.slug);
                                 if (isMobile) setSidebarOpen(false);
                               }}
                             >
-                              {sub}
+                              {sub.title}
                             </Button>
                           ))}
                         </div>

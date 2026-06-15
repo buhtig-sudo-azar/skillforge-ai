@@ -1,0 +1,496 @@
+   700→   700→        introduction: {
+   701→   701→          what: 'Промпт-инжинерия — это искусство и наука создания инструкций для LLM, максимизирующих качество и релевантность ответов. Включает техники: few-shot, chain-of-thought, structured output, role-playing.',
+   702→   702→          why: 'Правильный промпт может улучшить качество ответа на 50-200%. Разница между «расскажи про Python» и структурированным промптом — как между блокнотом и учебником.',
+   703→   703→          where: 'Промпт-инжинерия применяется везде, где используется LLM: чат-боты, агенты, генерация кода, анализ данных.',
+   704→   704→          problem: 'Плохой промпт приводит к расплывчатым, неточным или бесполезным ответам. Модель делает не то, что нужно, а то, что ей сказали.'
+   705→   705→        },
+   706→   706→        theory: {
+   707→   707→          terms: [
+   708→   708→            { name: 'Few-Shot', definition: 'Предоставление 2-3 примеров входа-выхода для демонстрации ожидаемого формата' },
+   709→   709→            { name: 'Chain-of-Thought', definition: 'Пошаговые рассуждения: "Давай подумаем шаг за шагом"' },
+   710→   710→            { name: 'Structured Output', definition: 'Требование ответа в определённом формате: JSON, таблица, Markdown' },
+   711→   711→            { name: 'Role Prompting', definition: 'Назначение модели роли: "Ты — опытный DevOps инженер"' }
+   712→   712→          ],
+   713→   713→          principles: [
+   714→   714→            'Будь конкретным: чем точнее запрос, тем точнее ответ',
+   715→   715→            'Показывай примеры: few-shot лучше zero-shot',
+   716→   716→            'Структурируй: используй заголовки, списки, разделители',
+   717→   717→            'Итерируй: первый промпт редко бывает идеальным'
+   718→   718→          ],
+   719→   719→          architecture: 'Prompt = Role + Context + Task + Format + Constraints + Examples',
+   720→   720→          connections: ['Промпты сохраняются как Skills', 'Промпт-инжинерия — основа Chatbot Engine', 'Песочницы позволяют тестировать промпты']
+   721→   721→        },
+   722→   722→        diagramType: 'cause-effect',
+   723→   723→        diagramData: {
+   724→   724→          type: 'cause-effect',
+   725→   725→          causes: [
+   726→   726→            { id: 'c1', label: 'Конкретный промпт' },
+   727→   727→            { id: 'c2', label: 'Few-shot примеры' },
+   728→   728→            { id: 'c3', label: 'Чёткий формат' }
+   729→   729→          ],
+   730→   730→          effects: [
+   731→   731→            { id: 'e1', label: 'Точный ответ' },
+   732→   732→            { id: 'e2', label: 'Структурированный вывод' },
+   733→   733→            { id: 'e3', label: 'Меньше галлюцинаций' }
+   734→   734→          ],
+   735→   735→          connections: [
+   736→   736→            { cause: 'c1', effect: 'e1' },
+   737→   737→            { cause: 'c2', effect: 'e1' },
+   738→   738→            { cause: 'c2', effect: 'e3' },
+   739→   739→            { cause: 'c3', effect: 'e2' }
+   740→   740→          ]
+   741→   741→        },
+   742→   742→        examples: [
+   743→   743→          {
+   744→   744→            title: 'Few-shot промпт для классификации',
+   745→   745→            code: `Классифицируй отзыв по тональности:\n\nОтзыв: "Отличный продукт, рекомендую!" → Позитивный\nОтзыв: "Ужасное качество, не советую" → Негативный\nОтзыв: "Нормально, но могло быть лучше" → Нейтральный\n\nОтзыв: "Быстрая доставка, всё работает!" →`,
+   746→   746→            language: 'text',
+   747→   747→            explanation: 'Few-shot промпт даёт модели 3 примера, после чего она понимает паттерн и классифицирует новый отзыв.'
+   748→   748→          }
+   749→   749→        ],
+   750→   750→        sandboxType: 'prompt',
+   751→   751→        sandboxConfig: {
+   752→   752→          presets: [
+   753→   753→            { name: 'Zero-shot vs Few-shot', description: 'Сравни ответы с примерами и без', payload: 'Объясни, что такое REST API', systemPrompt: 'Ты — образовательный чат-бот. Объясняй технические концепции простым языком.' },
+   754→   754→            { name: 'Chain-of-Thought', description: 'Добавь пошаговые рассуждения', payload: 'Сколько будет 15% от 240? Подумай шаг за шагом.', systemPrompt: 'Ты — математический ассистент. Всегда показывай ход рассуждений.' }
+   755→   755→          ],
+   756→   756→          mode: 'educational'
+   757→   757→        },
+   758→   758→        commonMistakes: [
+   759→   759→          { error: 'Слишком длинный промпт', explanation: 'Модель теряет суть среди деталей', correct: 'Структурируй промпт: роль → контекст → задача → формат' },
+   760→   760→          { error: 'Противоречивые инструкции', explanation: '«Будь краток, но подробно объясни» — модель запутается', correct: 'Избегай противоречий, выбирай одно направление' }
+   761→   761→        ]
+   762→   762→      },
+   763→   763→      {
+   764→   764→        id: 'st-chat-3',
+   765→   765→        topicId: 't-chatbots',
+   766→   766→        slug: 'streaming-responses',
+   767→   767→        title: 'Стриминг и SSE',
+   768→   768→        order: 2,
+   769→   769→        introduction: {
+   770→   770→          what: 'Server-Sent Events (SSE) — это протокол для стриминга данных от сервера к клиенту в реальном времени. В контексте LLM, SSE позволяет отображать токены ответа по мере их генерации.',
+   771→   771→          why: 'Без стриминга пользователь ждёт 10-30 секунд, пока модель сгенерирует полный ответ. Со стримингом он видит первые токены через 100-500мс.',
+   772→   772→          where: 'SSE используется во всех современных чат-ботах: ChatGPT, Claude, Gemini. Это стандарт для LLM-интерфейсов.',
+   773→   773→          problem: 'Реализация стриминга сложнее обычного HTTP-запроса: нужно обрабатывать поток данных, отслеживать ошибки и поддерживать соединение.'
+   774→   774→        },
+   775→   775→        theory: {
+   776→   776→          terms: [
+   777→   777→            { name: 'SSE (Server-Sent Events)', definition: 'Протокол односторонней передачи данных от сервера к клиенту через HTTP-соединение' },
+   778→   778→            { name: 'Token Streaming', definition: 'Постепенная отправка сгенерированных токенов LLM клиенту по мере их появления' },
+   779→   779→            { name: 'Delta', definition: 'Инкрементальное изменение — один токен или фрагмент текста в SSE-событии' }
+   780→   780→          ],
+   781→   781→          principles: [
+   782→   782→            'SSE — однонаправленный поток: сервер → клиент',
+   783→   783→            'Каждое событие начинается с "data: " и заканчивается двойным переносом строки',
+   784→   784→            'Специальное событие "data: [DONE]" означает конец потока',
+   785→   785→            'Клиент может прервать стрим через AbortController'
+   786→   786→          ],
+   787→   787→          architecture: 'LLM API → SSE Stream → API Route (proxy) → SSE Stream → Client (EventSource/fetch) → UI update',
+   788→   788→          connections: ['Стриминг используется в Chatbot Engine', 'Модели управляются через Model System', 'AbortController позволяет отменять запросы']
+   789→   789→        },
+   790→   790→        diagramType: 'flow',
+   791→   791→        diagramData: {
+   792→   792→          type: 'flow',
+   793→   793→          nodes: [
+   794→   794→            { id: '1', label: 'Клиент отправляет запрос', type: 'start' },
+   795→   795→            { id: '2', label: 'API Route проксирует к LLM', type: 'process' },
+   796→   796→            { id: '3', label: 'LLM генерирует токены', type: 'process' },
+   797→   797→            { id: '4', label: 'SSE: data: {delta}', type: 'process' },
+   798→   798→            { id: '5', label: 'Клиент обновляет UI', type: 'process' },
+   799→   799→            { id: '6', label: 'SSE: data: [DONE]', type: 'end' }
+   800→   800→          ],
+   801→   801→          edges: [
+   802→   802→            { from: '1', to: '2' },
+   803→   803→            { from: '2', to: '3' },
+   804→   804→            { from: '3', to: '4' },
+   805→   805→            { from: '4', to: '5' },
+   806→   806→            { from: '5', to: '3', label: 'Следующий токен' },
+   807→   807→            { from: '5', to: '6', label: 'Конец' }
+   808→   808→          ]
+   809→   809→        },
+   810→   810→        examples: [
+   811→   811→          {
+   812→   812→            title: 'Клиентский SSE парсер',
+   813→   813→            code: `const response = await fetch('/api/chat', {\n  method: 'POST',\n  body: JSON.stringify({ messages, systemPrompt, model }),\n});\n\nconst reader = response.body!.getReader();\nconst decoder = new TextDecoder();\n\nwhile (true) {\n  const { done, value } = await reader.read();\n  if (done) break;\n  const chunk = decoder.decode(value);\n  const lines = chunk.split('\\n');\n  for (const line of lines) {\n    if (line.startsWith('data: ') && line !== 'data: [DONE]') {\n      const data = JSON.parse(line.slice(6));\n      const token = data.choices[0]?.delta?.content || '';\n      onToken(token); // обновляем UI\n    }\n  }\n}`,
+   814→   814→            language: 'typescript',
+   815→   815→            explanation: 'Клиентский код для чтения SSE потока. Каждый чанк парсится, токены извлекаются и отображаются в UI.'
+   816→   816→          }
+   817→   817→        ],
+   818→   818→        sandboxType: 'prompt',
+   819→   819→        sandboxConfig: {
+   820→   820→          presets: [
+   821→   821→            { name: 'Понимание SSE', description: 'Объясни, как работает SSE стриминг', payload: 'Объясни, как работает Server-Sent Events для стриминга LLM ответов', systemPrompt: 'Ты — эксперт по веб-протоколам. Объясни SSE просто и с примерами.' }
+   822→   822→          ],
+   823→   823→          mode: 'educational'
+   824→   824→        },
+   825→   825→        commonMistakes: [
+   826→   826→          { error: 'Не обрабатывать [DONE]', explanation: 'Клиент зависнет, ожидая новые токены', correct: 'Всегда обрабатывай событие data: [DONE] как конец потока' },
+   827→   827→          { error: 'Блокировка UI при парсинге', explanation: 'Сложный парсинг на главном потоке тормозит рендер', correct: 'Используй ReadableStream и обновляй UI инкрементально' }
+   828→   828→        ]
+   829→   829→      },
+   830→   830→      {
+   831→   831→        id: 'st-chat-4',
+   832→   832→        topicId: 't-chatbots',
+   833→   833→        slug: 'model-selection',
+   834→   834→        title: 'Выбор модели',
+   835→   835→        order: 3,
+   836→   836→        introduction: {
+   837→   837→          what: 'Выбор модели — это стратегия подбора LLM для конкретной задачи: учёт стоимости, скорости, качества и доступности. Включает механизмы фоллбэка при недоступности модели.',
+   838→   838→          why: 'Разные задачи требуют разных моделей: простые вопросы — маленькая быстрая модель, сложные рассуждения — большая и дорогая. Фоллбэк обеспечивает надёжность.',
+   839→   839→          where: 'Управление моделями реализуется через OpenRouter, который даёт доступ к множеству моделей через единый API.',
+   840→   840→          problem: 'Без фоллбэка приложение ломается, когда модель недоступна или достигнут лимит запросов. Без выбора модели — переплата за простые задачи.'
+   841→   841→        },
+   842→   842→        theory: {
+   843→   843→          terms: [
+   844→   844→            { name: 'Free Tier', definition: 'Бесплатный тариф LLM API с ограничениями по скорости и объёму' },
+   845→   845→            { name: 'Rate Limiting', definition: 'Ограничение количества запросов к API в единицу времени' },
+   846→   846→            { name: 'Fallback', definition: 'Автоматическое переключение на запасную модель при недоступности основной' }
+   847→   847→          ],
+   848→   848→          principles: [
+   849→   849→            'Используй бесплатные модели для образовательных задач',
+   850→   850→            'Фоллбэк: основная модель → бесплатная альтернатива → следующая',
+   851→   851→            'Отслеживай rate limits и кэшируй статус моделей',
+   852→   852→            'Позволяй пользователям подключать свои API-ключи'
+   853→   853→          ],
+   854→   854→          architecture: 'Model Selector → Try Primary Model → (429 Error?) → Try Fallback Model → Stream Response',
+   855→   855→          connections: ['Модели управляются через Model System', 'Rate limits хранятся в Model Store', 'API-ключи пользователей в настройках']
+   856→   856→        },
+   857→   857→        diagramType: 'flow',
+   858→   858→        diagramData: {
+   859→   859→          type: 'flow',
+   860→   860→          nodes: [
+   861→   861→            { id: '1', label: 'Запрос к модели', type: 'start' },
+   862→   862→            { id: '2', label: 'Попробовать основную', type: 'process' },
+   863→   863→            { id: '3', label: 'Успешно?', type: 'decision' },
+   864→   864→            { id: '4', label: 'Вернуть ответ', type: 'end' },
+   865→   865→            { id: '5', label: 'Попробовать fallback', type: 'process' },
+   866→   866→            { id: '6', label: 'Все модели недоступны', type: 'end' }
+   867→   867→          ],
+   868→   868→          edges: [
+   869→   869→            { from: '1', to: '2' },
+   870→   870→            { from: '2', to: '3' },
+   871→   871→            { from: '3', to: '4', label: 'Да' },
+   872→   872→            { from: '3', to: '5', label: '429/Ошибка' },
+   873→   873→            { from: '5', to: '3' },
+   874→   874→            { from: '5', to: '6', label: 'Все исчерпаны' }
+   875→   875→          ]
+   876→   876→        },
+   877→   877→        examples: [
+   878→   878→          {
+   879→   879→            title: 'Multi-model fallback',
+   880→   880→            code: `async function callWithFallback(prompt, models) {\n  for (const model of models) {\n    try {\n      const response = await callLLM(model, prompt);\n      if (response.ok) return response;\n      if (response.status === 429) {\n        rateLimitedModels.add(model);\n        continue; // пробуем следующую\n      }\n    } catch (e) {\n      continue;\n    }\n  }\n  throw new Error('Все модели недоступны');\n}`,
+   881→   881→            language: 'typescript',
+   882→   882→            explanation: 'Простейший fallback: перебираем модели по приоритету, пропускаем rate-limited, возвращаем первый успешный ответ.'
+   883→   883→          }
+   884→   884→        ],
+   885→   885→        sandboxType: 'prompt',
+   886→   886→        sandboxConfig: {
+   887→   887→          presets: [
+   888→   888→            { name: 'Стратегия выбора модели', description: 'Определи стратегию выбора модели', payload: 'Какую модель выбрать для: 1) простых вопросов 2) анализа кода 3) генерации текста?', systemPrompt: 'Ты — эксперт по LLM-моделям. Помоги выбрать оптимальную модель для каждой задачи.' }
+   889→   889→          ],
+   890→   890→          mode: 'educational'
+   891→   891→        },
+   892→   892→        commonMistakes: [
+   893→   893→          { error: 'Только одна модель', explanation: 'Нет фоллбэка — приложение ломается при недоступности', correct: 'Всегда имей 2-3 запасных модели' },
+   894→   894→          { error: 'Не отслеживать rate limits', explanation: 'Повторные запросы к rate-limited модели тратят время', correct: 'Кэшируй статус rate limits с TTL 10 минут' }
+   895→   895→        ]
+   896→   896→      }
+   897→   897→    ]
+   898→   898→  },
+   899→   899→  // ============================================================
+   900→   900→  // SANDBOXES
+   901→   901→  // ============================================================
+   902→   902→  {
+   903→   903→    id: 't-sandboxes',
+   904→   904→    slug: 'sandboxes',
+   905→   905→    title: 'Песочницы и симуляция',
+   906→   906→    description: 'Учитесь безопасно экспериментировать с AI: тестируйте промпты, агентов и инструменты в изолированных средах.',
+   907→   907→    icon: '🔬',
+   908→   908→    gradient: categoryGradients.sandboxes,
+   909→   909→    order: 3,
+   910→   910→    category: 'sandboxes',
+   911→   911→    isPublic: true,
+   912→   912→    subtopics: [
+   913→   913→      {
+   914→   914→        id: 'st-sb-1',
+   915→   915→        topicId: 't-sandboxes',
+   916→   916→        slug: 'what-is-sandbox',
+   917→   917→        title: 'Что такое песочница?',
+   918→   918→        order: 0,
+   919→   919→        introduction: {
+   920→   920→          what: 'Песочница (Sandbox) — это изолированная среда для безопасного экспериментирования с AI. В образовательном режиме симулирует реальные API, в продвинутом — подключается к настоящим сервисам.',
+   921→   921→          why: 'Песочницы позволяют учиться без риска: ошибаться, тестировать гипотезы и видеть результаты без последствий для реальных систем.',
+   922→   922→          where: 'Песочницы встроены в каждый раздел платформы: Prompt Sandbox, Agent Sandbox, Tool Sandbox, MCP Sandbox, RAG Sandbox, Workflow Sandbox.',
+   923→   923→          problem: 'Без песочниц обучение на реальных API стоит денег и может привести к ошибкам в продакшене. Песочницы решают обе проблемы.'
+   924→   924→        },
+   925→   925→        theory: {
+   926→   926→          terms: [
+   927→   927→            { name: 'Educational Mode', definition: 'Режим полной симуляции — все ответы генерируются, API не вызываются' },
+   928→   928→            { name: 'Advanced Mode', definition: 'Режим с реальными API — опциональное подключение к настоящим сервисам' },
+   929→   929→            { name: 'Preset', definition: 'Предустановленный сценарий для быстрого старта эксперимента' }
+   930→   930→          ],
+   931→   931→          principles: [
+   932→   932→            'Безопасность прежде всего: песочница изолирована от реальных систем',
+   933→   933→            'Пресеты ускоряют обучение — не нужно писать всё с нуля',
+   934→   934→            'Результаты можно сбросить и начать заново',
+   935→   935→            'Educational Mode бесплатен, Advanced требует API-ключ'
+   936→   936→          ],
+   937→   937→          architecture: 'Sandbox Input → System Prompt + Context → LLM (simulated or real) → Structured Output → Feedback',
+   938→   938→          connections: ['Каждая песочница связана с определённой категорией навыков', 'Результаты сохраняются в Progress Store', 'Security Engine валидирует ввод']
+   939→   939→        },
+   940→   940→        diagramType: 'flow',
+   941→   941→        diagramData: {
+   942→   942→          type: 'flow',
+   943→   943→          nodes: [
+   944→   944→            { id: '1', label: 'Выбрать тип песочницы', type: 'start' },
+   945→   945→            { id: '2', label: 'Выбрать пресет или свой ввод', type: 'process' },
+   946→   946→            { id: '3', label: 'Режим?', type: 'decision' },
+   947→   947→            { id: '4', label: 'Симуляция (Educational)', type: 'process' },
+   948→   948→            { id: '5', label: 'Реальный API (Advanced)', type: 'process' },
+   949→   949→            { id: '6', label: 'Анализ результата', type: 'process' },
+   950→   950→            { id: '7', label: 'Обратная связь', type: 'end' }
+   951→   951→          ],
+   952→   952→          edges: [
+   953→   953→            { from: '1', to: '2' },
+   954→   954→            { from: '2', to: '3' },
+   955→   955→            { from: '3', to: '4', label: 'Educational' },
+   956→   956→            { from: '3', to: '5', label: 'Advanced' },
+   957→   957→            { from: '4', to: '6' },
+   958→   958→            { from: '5', to: '6' },
+   959→   959→            { from: '6', to: '7' }
+   960→   960→          ]
+   961→   961→        },
+   962→   962→        examples: [
+   963→   963→          {
+   964→   964→            title: 'Конфигурация песочницы',
+   965→   965→            code: `const sandbox = {\n  type: "prompt",\n  mode: "educational",\n  presets: [\n    { name: "Few-shot классификация", payload: "Классифицируй: ..." },\n    { name: "CoT рассуждение", payload: "Подумай шаг за шагом: ..." }\n  ],\n  systemPrompt: "Ты — симулятор AI-модели. Отвечай реалистично."\n};`,
+   966→   966→            language: 'typescript',
+   967→   967→            explanation: 'Конфигурация песочницы: тип, режим, пресеты и системный промпт.'
+   968→   968→          }
+   969→   969→        ],
+   970→   970→        sandboxType: 'prompt',
+   971→   971→        sandboxConfig: { presets: [{ name: 'Тест песочницы', description: 'Попробуй работу песочницы', payload: 'Привет! Как работает песочница?', systemPrompt: 'Ты — симулятор AI-модели в образовательной песочнице. Отвечай дружелюбно и информативно.' }], mode: 'educational' },
+   972→   972→        commonMistakes: [
+   973→   973→          { error: 'Тестирование на продакшене', explanation: 'Эксперименты с реальными API могут стоить денег и сломать данные', correct: 'Начинай в Educational Mode, переходи к Advanced только когда уверен' }
+   974→   974→        ]
+   975→   975→      },
+   976→   976→      {
+   977→   977→        id: 'st-sb-2',
+   978→   978→        topicId: 't-sandboxes',
+   979→   979→        slug: 'prompt-sandbox',
+   980→   980→        title: 'Промпт-песочница',
+   981→   981→        order: 1,
+   982→   982→        introduction: { what: 'Промпт-песочница позволяет тестировать различные промпты и системные инструкции, наблюдая за изменением поведения модели в реальном времени.', why: 'Позволяет быстро итерировать промпты: измени системную инструкцию, отправь запрос и сразу увидишь результат.', where: 'Используется при разработке чат-ботов, настройке системных промптов и обучении промпт-инжинирингу.', problem: 'Без песочницы каждый тест промпта требует настройки окружения, API-ключей и мониторинга.' },
+   983→   983→        theory: { terms: [{ name: 'System Prompt Editor', definition: 'Поле для редактирования системной инструкции в реальном времени' }, { name: 'A/B Testing промптов', definition: 'Сравнение результатов двух разных промптов на одном запросе' }], principles: ['Измени один параметр за раз', 'Сравнивай результаты на одинаковых входных данных', 'Сохраняй удачные промпты как Skills'], architecture: 'System Prompt + User Input → LLM → Output → Compare → Iterate', connections: ['Удачные промпты сохраняются как Prompt Skills', 'Результаты логируются для аналитики'] },
+   984→   984→        diagramType: 'flow', diagramData: { type: 'flow', nodes: [{ id: '1', label: 'Написать промпт', type: 'start' }, { id: '2', label: 'Отправить запрос', type: 'process' }, { id: '3', label: 'Получить ответ', type: 'process' }, { id: '4', label: 'Удовлетворён?', type: 'decision' }, { id: '5', label: 'Сохранить как Skill', type: 'end' }], edges: [{ from: '1', to: '2' }, { from: '2', to: '3' }, { from: '3', to: '4' }, { from: '4', to: '5', label: 'Да' }, { from: '4', to: '1', label: 'Нет — итерация' }] },
+   985→   985→        examples: [{ title: 'Тестирование системного промпта', code: `// Промпт A\nconst promptA = "Ты — помощник. Отвечай кратко.";\n// Промпт B\nconst promptB = "Ты — эксперт. Давай подробные объяснения с примерами.";\n// Один и тот же запрос\nconst query = "Объясни замыкания в JavaScript";\n// Сравниваем ответы`, language: 'typescript', explanation: 'A/B тестирование промптов: один и тот же запрос, разные системные инструкции. Сравниваем качество ответов.' }],
+   986→   986→        sandboxType: 'prompt',
+   987→   987→        sandboxConfig: { presets: [{ name: 'A/B тест', description: 'Сравни два промпта', payload: 'Объясни, что такое рекурсия', systemPrompt: 'Ты — образовательный чат-бот. Отвечай на русском.' }, { name: 'Ролевой промпт', description: 'Протестируй ролевое поведение', payload: 'Как оптимизировать SQL запрос?', systemPrompt: 'Ты — Senior Database Administrator с 15 годами опыта. Давай конкретные рекомендации.' }], mode: 'educational' },
+   988→   988→        commonMistakes: [{ error: 'Менять всё сразу', explanation: 'Непонятно, какое изменение улучшило результат', correct: 'Меняй один элемент промпта за раз' }]
+   989→   989→      },
+   990→   990→      {
+   991→   991→        id: 'st-sb-3',
+   992→   992→        topicId: 't-sandboxes',
+   993→   993→        slug: 'agent-sandbox',
+   994→   994→        title: 'Песочница агентов',
+   995→   995→        order: 2,
+   996→   996→        introduction: { what: 'Agent Sandbox позволяет тестировать поведение AI-агентов: как они планируют шаги, выбирают инструменты и обрабатывают результаты.', why: 'Позволяет отлаживать агентов перед деплоем: проверить, правильно ли агент выбирает инструменты и формирует вызовы.', where: 'Используется при разработке и тестировании агентов, обучении агентным паттернам.', problem: 'Без песочницы ошибки агента обнаруживаются только в продакшене — когда они уже стоят денег и времени.' },
+   997→   997→        theory: { terms: [{ name: 'Agent Trace', definition: 'Лог шагов агента: мысль → действие → наблюдение на каждой итерации' }, { name: 'Mock Tools', definition: 'Симулированные инструменты для тестирования без реальных API' }], principles: ['Тестируй агента на типичных и граничных сценариях', 'Используй mock-инструменты для предсказуемости', 'Логируй каждый шаг для анализа'], architecture: 'Task → Agent (ReAct loop) → Mock/Real Tools → Trace Log → Analysis', connections: ['Инструменты агента описаны как Tool Skills', 'Трейсы логируются для улучшения агента'] },
+   998→   998→        diagramType: 'flow', diagramData: { type: 'flow', nodes: [{ id: '1', label: 'Задача для агента', type: 'start' }, { id: '2', label: 'Thought: рассуждение', type: 'process' }, { id: '3', label: 'Action: вызов инструмента', type: 'process' }, { id: '4', label: 'Observation: результат', type: 'process' }, { id: '5', label: 'Трейс лог', type: 'process' }, { id: '6', label: 'Финальный ответ', type: 'end' }], edges: [{ from: '1', to: '2' }, { from: '2', to: '3' }, { from: '3', to: '4' }, { from: '4', to: '5' }, { from: '5', to: '2', label: 'Итерация' }, { from: '5', to: '6', label: 'Готово' }] },
+   999→   999→        examples: [{ title: 'Тест агента с mock-инструментом', code: `const mockTools = {\n  get_weather: (args) => ({ temp: "22°C", condition: "солнечно" }),\n  search_web: (args) => ({ results: ["Результат 1", "Результат 2"] })\n};\n\n// Агент использует mock вместо реальных API\nconst result = await runAgent(task, mockTools);`, language: 'typescript', explanation: 'Mock-инструменты возвращают предсказуемые результаты, что позволяет тестировать логику агента изолированно.' }],
+  1000→  1000→        sandboxType: 'agent',
+  1001→  1001→        sandboxConfig: { presets: [{ name: 'Тест агента', description: 'Протестируй поведение агента', payload: 'Найди погоду в Москве и посоветуй, как одеться', systemPrompt: 'Ты — агент с инструментами get_weather и search. Используй формат ReAct.' }], mode: 'educational' },
+  1002→  1002→        commonMistakes: [{ error: 'Тестирование только на счастливом пути', explanation: 'Агент может не справиться с нестандартными ситуациями', correct: 'Тестируй граничные случаи: пустые результаты, ошибки API, неоднозначные запросы' }]
+  1003→  1003→      },
+  1004→  1004→      {
+  1005→  1005→        id: 'st-sb-4',
+  1006→  1006→        topicId: 't-sandboxes',
+  1007→  1007→        slug: 'tool-sandbox',
+  1008→  1008→        title: 'Песочница инструментов',
+  1009→  1009→        order: 3,
+  1010→  1010→        introduction: { what: 'Tool Sandbox позволяет тестировать определения инструментов (function calling): проверять схему параметров, валидацию и то, как LLM генерирует вызовы.', why: 'Неправильная схема инструмента — частая причина ошибок агентов. Песочница позволяет быстро выявить и исправить проблемы.', where: 'Используется при разработке инструментов для агентов и MCP-серверов.', problem: 'Без валидации инструмент может принимать неверные параметры, что ведёт к ошибкам в работе агента.' },
+  1011→  1011→        theory: { terms: [{ name: 'Parameter Schema', definition: 'JSON Schema описание параметров инструмента: типы, обязательность, enum-значения' }, { name: 'Schema Validation', definition: 'Проверка, что сгенерированные LLM параметры соответствуют схеме' }], principles: ['Все параметры должны иметь описание', 'Required поля явно указаны', 'Enum ограничивают допустимые значения', 'Тестируй схему с разными промптами'], architecture: 'Tool Definition → LLM generates call → Validate parameters → Execute → Return result', connections: ['Инструменты подключаются через MCP Engine', 'Валидация — часть Security Engine'] },
+  1012→  1012→        diagramType: 'flow', diagramData: { type: 'flow', nodes: [{ id: '1', label: 'Определить инструмент', type: 'start' }, { id: '2', label: 'Протестировать вызов', type: 'process' }, { id: '3', label: 'Валидация параметров', type: 'decision' }, { id: '4', label: 'Выполнить', type: 'process' }, { id: '5', label: 'Ошибка — исправить схему', type: 'process' }, { id: '6', label: 'Результат', type: 'end' }], edges: [{ from: '1', to: '2' }, { from: '2', to: '3' }, { from: '3', to: '4', label: 'OK' }, { from: '3', to: '5', label: 'Ошибка' }, { from: '4', to: '6' }, { from: '5', to: '1' }] },
+  1013→  1013→        examples: [{ title: 'Тестирование схемы инструмента', code: `const tool = {\n  name: "send_email",\n  parameters: {\n    to: { type: "string", description: "Email получателя" },\n    subject: { type: "string" },\n    body: { type: "string" },\n    priority: { type: "string", enum: ["low", "normal", "high"] }\n  },\n  required: ["to", "subject", "body"]\n};\n\n// Тест: LLM должна сгенерировать корректный вызов\nconst testPrompt = "Отправь письмо Ивану о встрече";`, language: 'typescript', explanation: 'Инструмент send_email с валидацией: обязательные поля и enum для приоритета. Тест проверяет, что LLM корректно заполняет параметры.' }],
+  1014→  1014→        sandboxType: 'tool',
+  1015→  1015→        sandboxConfig: { presets: [{ name: 'Создание инструмента', description: 'Создай и протестируй инструмент', payload: 'Создай инструмент для поиска ресторанов по категории и рейтингу', systemPrompt: 'Ты — эксперт по проектированию инструментов для AI-агентов. Помоги создать и протестировать JSON Schema.' }], mode: 'educational' },
+  1016→  1016→        commonMistakes: [{ error: 'Нет описаний параметров', explanation: 'LLM не понимает, что передавать в параметр', correct: 'Каждый параметр должен иметь description' }, { error: 'Слишком много optional полей', explanation: 'Агент может передать лишние или неверные данные', correct: 'Минимизируй optional поля, чётко указывай required' }]
+  1017→  1017→      }
+  1018→  1018→    ]
+  1019→  1019→  },
+  1020→  1020→  // ============================================================
+  1021→  1021→  // WORKFLOWS
+  1022→  1022→  // ============================================================
+  1023→  1023→  {
+  1024→  1024→    id: 't-workflows',
+  1025→  1025→    slug: 'workflows',
+  1026→  1026→    title: 'Воркфлоу и автоматизация',
+  1027→  1027→    description: 'Научитесь оркестрировать навыки и агенты в автоматизированные рабочие процессы.',
+  1028→  1028→    icon: '⚙️',
+  1029→  1029→    gradient: categoryGradients.workflows,
+  1030→  1030→    order: 4,
+  1031→  1031→    category: 'workflows',
+  1032→  1032→    isPublic: true,
+  1033→  1033→    subtopics: [
+  1034→  1034→      {
+  1035→  1035→        id: 'st-wf-1',
+  1036→  1036→        topicId: 't-workflows',
+  1037→  1037→        slug: 'what-is-workflow',
+  1038→  1038→        title: 'Что такое воркфлоу?',
+  1039→  1039→        order: 0,
+  1040→  1040→        introduction: { what: 'Воркфлоу — это автоматизированная последовательность шагов, оркестрирующая навыки и агенты для решения сложных задач. Каждый шаг — это Skill или вызов агента.', why: 'Воркфлоу превращают набор разрозненных навыков в надёжный автоматизированный процесс. Как конвейер на заводе — каждый шаг выполняется в нужном порядке.', where: 'Воркфлоу применяются в CI/CD, обработке данных, генерации контента, автоматизации бизнес-процессов.', problem: 'Без воркфлоу каждый шаг нужно запускать вручную, что неэффективно и подвержено ошибкам.' },
+  1041→  1041→        theory: { terms: [{ name: 'Node', definition: 'Узел воркфлоу: триггер, навык, агент, условие или выход' }, { name: 'Edge', definition: 'Связь между узлами, определяющая порядок выполнения' }, { name: 'Trigger', definition: 'Событие, запускающее воркфлоу: запрос пользователя, таймер, webhook' }], principles: ['Воркфлоу = навыки + агенты + условия + оркестрация', 'Каждый узел выполняет одну задачу', 'Условия управляют ветвлением логики', 'Обработка ошибок обязательна для production воркфлоу'], architecture: 'Trigger → [Skill/Agent/Condition nodes] → Edges (sequential/parallel/conditional) → Output', connections: ['Каждый узел — это Skill из Skill Engine', 'Агентные узлы используют Agent Engine', 'Воркфлоу тестируются в Workflow Sandbox'] },
+  1042→  1042→        diagramType: 'tree', diagramData: { type: 'tree', root: { id: 'trigger', label: 'Trigger: Запрос', children: [{ id: 'skill1', label: 'Skill: Анализ' }, { id: 'condition', label: 'Condition: Тип задачи?', children: [{ id: 'agent1', label: 'Agent: Код-ревью' }, { id: 'agent2', label: 'Agent: Документация' }] }, { id: 'output', label: 'Output: Результат' }] } },
+  1043→  1043→        examples: [{ title: 'Воркфлоу код-ревью', code: `const workflow = {\n  nodes: [\n    { id: 'trigger', type: 'trigger', label: 'Новый Pull Request' },\n    { id: 'analyze', type: 'skill', label: 'Анализ изменений' },\n    { id: 'review', type: 'agent', label: 'Code Review Agent' },\n    { id: 'test', type: 'agent', label: 'Test Agent' },\n    { id: 'report', type: 'skill', label: 'Сборка отчёта' },\n    { id: 'output', type: 'output', label: 'Комментарий в PR' }\n  ],\n  edges: [\n    { from: 'trigger', to: 'analyze' },\n    { from: 'analyze', to: 'review' },\n    { from: 'analyze', to: 'test' }, // параллельно\n    { from: 'review', to: 'report' },\n    { from: 'test', to: 'report' },\n    { from: 'report', to: 'output' }\n  ]\n};`, language: 'typescript', explanation: 'Воркфлоу для автоматического код-ревью: анализ → параллельный review + test → сборка отчёта → комментарий.' }],
+  1044→  1044→        sandboxType: 'workflow',
+  1045→  1045→        sandboxConfig: { presets: [{ name: 'Простой воркфлоу', description: 'Спроектируй простой воркфлоу', payload: 'Спроектируй воркфлоу для автоматической генерации документации из кода', systemPrompt: 'Ты — эксперт по проектированию воркфлоу. Помоги создать последовательность шагов.' }], mode: 'educational' },
+  1046→  1046→        commonMistakes: [{ error: 'Линейный воркфлоу без обработки ошибок', explanation: 'Любой сбой ломает всю цепочку', correct: 'Добавляй error handling узлы и fallback действия' }, { error: 'Все шаги последовательно', explanation: 'Медленно, если шаги независимы', correct: 'Запускай независимые шаги параллельно' }]
+  1047→  1047→      },
+  1048→  1048→      {
+  1049→  1049→        id: 'st-wf-2',
+  1050→  1050→        topicId: 't-workflows',
+  1051→  1051→        slug: 'workflow-design',
+  1052→  1052→        title: 'Проектирование воркфлоу',
+  1053→  1053→        order: 1,
+  1054→  1054→        introduction: { what: 'Проектирование воркфлоу — это визуальное и логическое описание последовательности шагов: какие узлы, как связаны, какие условия и что происходит при ошибках.', why: 'Хорошо спроектированный воркфлоу надёжен, понятен и легко модифицируется. Плохой — хрупок и непредсказуем.', where: 'Проектирование выполняется визуально (drag-and-drop) или текстово (YAML/JSON) в Workflow Engine.', problem: 'Без визуализации и структурирования воркфлоу превращается в нечитаемый спагетти-код.' },
+  1055→  1055→        theory: { terms: [{ name: 'Sequential Flow', definition: 'Линейное выполнение: шаг за шагом, каждый зависит от предыдущего' }, { name: 'Parallel Flow', definition: 'Параллельное выполнение: независимые шаги запускаются одновременно' }, { name: 'Conditional Branch', definition: 'Ветвление: выбор следующего шага на основе условия' }, { name: 'Loop', definition: 'Цикл: повторение шагов до выполнения условия' }], principles: ['Начинай с конечного результата и иди назад', 'Минимизируй зависимости между шагами', 'Каждый узел должен быть идемпотентным', 'Документируй каждый шаг'], architecture: 'Design → Validate → Test (dry-run) → Deploy → Monitor', connections: ['Визуальный редактор — часть Workflow Engine', 'Валидация через Security Engine'] },
+  1056→  1056→        diagramType: 'graph', diagramData: { type: 'graph', nodes: [{ id: 'n1', label: 'Trigger', group: 'start' }, { id: 'n2', label: 'Skill A', group: 'skill' }, { id: 'n3', label: 'Skill B', group: 'skill' }, { id: 'n4', label: 'Condition', group: 'decision' }, { id: 'n5', label: 'Agent C', group: 'agent' }, { id: 'n6', label: 'Output', group: 'end' }], edges: [{ from: 'n1', to: 'n2' }, { from: 'n2', to: 'n3' }, { from: 'n3', to: 'n4' }, { from: 'n4', to: 'n5', label: 'Yes' }, { from: 'n4', to: 'n6', label: 'No' }, { from: 'n5', to: 'n6' }] },
+  1057→  1057→        examples: [{ title: 'YAML описание воркфлоу', code: `workflow:\n  name: document-generator\n  trigger: on_code_commit\n  steps:\n    - id: analyze\n      type: skill\n      skill: code-analyzer\n    - id: generate\n      type: agent\n      agent: doc-writer\n      depends_on: [analyze]\n    - id: validate\n      type: skill\n      skill: doc-validator\n      depends_on: [generate]\n    - id: publish\n      type: output\n      depends_on: [validate]`, language: 'yaml', explanation: 'YAML-описание воркфлоу генерации документации: анализ → генерация → валидация → публикация.' }],
+  1058→  1058→        sandboxType: 'workflow',
+  1059→  1059→        sandboxConfig: { presets: [{ name: 'Визуальное проектирование', description: 'Спроектируй воркфлоу визуально', payload: 'Нарисуй воркфлоу для обработки заявок поддержки: приём → классификация → назначение → решение → уведомление', systemPrompt: 'Ты — эксперт по проектированию воркфлоу. Опиши узлы и связи.' }], mode: 'educational' },
+  1060→  1060→        commonMistakes: [{ error: 'Циклические зависимости', explanation: 'Узел A зависит от B, а B зависит от A — deadlock', correct: 'Проверяй ацикличность графа воркфлоу' }, { error: 'Нет rollback при ошибке', explanation: 'Ошибка в середине оставляет систему в неконсистентном состоянии', correct: 'Добавляй компенсирующие действия для каждого шага' }]
+  1061→  1061→      },
+  1062→  1062→      {
+  1063→  1063→        id: 'st-wf-3',
+  1064→  1064→        topicId: 't-workflows',
+  1065→  1065→        slug: 'workflow-patterns',
+  1066→  1066→        title: 'Паттерны воркфлоу',
+  1067→  1067→        order: 2,
+  1068→  1068→        introduction: { what: 'Паттерны воркфлоу — это типовые решения для организации потоков работ: последовательный, параллельный, условный, циклический и fan-out/fan-in.', why: 'Паттерны дают готовые шаблоны для типичных задач — не нужно изобретать велосипед каждый раз.', where: 'Паттерны применяются как строительные блоки при проектировании сложных воркфлоу.', problem: 'Без знания паттернов проектировщик воркфлоу reinvent-ит решения и совершает типичные ошибки.' },
+  1069→  1069→        theory: { terms: [{ name: 'Fan-out/Fan-in', definition: 'Распараллеливание задачи на N обработчиков и сбор результатов в один' }, { name: 'Saga Pattern', definition: 'Управление распределёнными транзакциями с компенсацией при сбоях' }, { name: 'Pipeline', definition: 'Конвейер: выход одного шага — вход следующего' }], principles: ['Последовательный — проще всего, но медленнее', 'Параллельный — быстрее, но сложнее координация', 'Условный — гибкость, но больше тестов', 'Saga — надёжность для критичных процессов'], architecture: 'Sequential → Pipeline → Parallel → Fan-out → Conditional → Saga', connections: ['Паттерны реализуются через Workflow Engine', 'Каждый паттерн можно протестировать в Workflow Sandbox'] },
+  1070→  1070→        diagramType: 'tree', diagramData: { type: 'tree', root: { id: 'root', label: 'Паттерны воркфлоу', children: [{ id: 'p1', label: 'Sequential' }, { id: 'p2', label: 'Parallel' }, { id: 'p3', label: 'Conditional' }, { id: 'p4', label: 'Fan-out/Fan-in' }, { id: 'p5', label: 'Saga' }, { id: 'p6', label: 'Pipeline' }] } },
+  1071→  1071→        examples: [{ title: 'Fan-out/Fan-in паттерн', code: `// Анализируем документ параллельно разными агентами\nconst results = await Promise.all([\n  agentAnalyze(document, 'grammar'),\n  agentAnalyze(document, 'style'),\n  agentAnalyze(document, 'facts')\n]);\n// Собираем результаты\nconst report = mergeReports(results);`, language: 'typescript', explanation: 'Fan-out: документ анализируется тремя агентами параллельно. Fan-in: результаты объединяются в один отчёт.' }],
+  1072→  1072→        sandboxType: 'workflow',
+  1073→  1073→        sandboxConfig: { presets: [{ name: 'Выбор паттерна', description: 'Определи подходящий паттерн', payload: 'Какой паттерн использовать для обработки 1000 документов с разными типами анализа?', systemPrompt: 'Ты — эксперт по паттернам воркфлоу. Рекомендуй оптимальный паттерн для задачи.' }], mode: 'educational' },
+  1074→  1074→        commonMistakes: [{ error: 'Параллельность там, где нужна последовательность', explanation: 'Данные второго шага зависят от первого, но запущены параллельно', correct: 'Анализируй зависимости данных перед выбором паттерна' }]
+  1075→  1075→      }
+  1076→  1076→    ]
+  1077→  1077→  },
+  1078→  1078→  // ============================================================
+  1079→  1079→  // MCP
+  1080→  1080→  // ============================================================
+  1081→  1081→  {
+  1082→  1082→    id: 't-mcp',
+  1083→  1083→    slug: 'mcp',
+  1084→  1084→    title: 'Model Context Protocol',
+  1085→  1085→    description: 'Изучите стандарт подключения AI к внешним инструментам и данным через Model Context Protocol.',
+  1086→  1086→    icon: '🔌',
+  1087→  1087→    gradient: categoryGradients.mcp,
+  1088→  1088→    order: 5,
+  1089→  1089→    category: 'mcp',
+  1090→  1090→    isPublic: true,
+  1091→  1091→    subtopics: [
+  1092→  1092→      {
+  1093→  1093→        id: 'st-mcp-1',
+  1094→  1094→        topicId: 't-mcp',
+  1095→  1095→        slug: 'what-is-mcp',
+  1096→  1096→        title: 'Что такое MCP?',
+  1097→  1097→        order: 0,
+  1098→  1098→        introduction: { what: 'Model Context Protocol (MCP) — это открытый стандарт, позволяющий AI-моделям подключаться к внешним инструментам, базам данных и сервисам через унифицированный интерфейс.', why: 'MCP стандартизирует подключение инструментов: вместо интеграции каждого API по отдельности, агент работает с MCP-серверами через единый протокол.', where: 'MCP используется в Claude Desktop, Cursor, и других AI-инструментах для подключения файловой системы, баз данных, веб-сервисов.', problem: 'Без стандарта каждое подключение инструмента к AI требует индивидуальной интеграции — дорого и несовместимо.' },
+  1099→  1099→        theory: { terms: [{ name: 'MCP Server', definition: 'Сервер, предоставляющий инструменты и данные через MCP протокол' }, { name: 'MCP Client', definition: 'AI-приложение, подключающееся к MCP серверам для использования инструментов' }, { name: 'Transport', definition: 'Способ связи между клиентом и сервером: stdio, HTTP+SSE' }], principles: ['MCP разделяет AI-модель и инструменты', 'Серверы независимы и могут быть переиспользованы', 'Безопасность: серверы имеют ограниченные права доступа', 'Стандарт: любой MCP-клиент работает с любым MCP-сервером'], architecture: 'AI Client ↔ MCP Protocol ↔ MCP Server → Tools/Resources', connections: ['MCP инструменты описаны как Tool Skills', 'MCP серверы тестируются в MCP Sandbox', 'Безопасность контролируется Security Engine'] },
+  1100→  1100→        diagramType: 'flow', diagramData: { type: 'flow', nodes: [{ id: '1', label: 'AI Агент (Client)', type: 'start' }, { id: '2', label: 'MCP Protocol', type: 'process' }, { id: '3', label: 'MCP Server: Files', type: 'process' }, { id: '4', label: 'MCP Server: DB', type: 'process' }, { id: '5', label: 'MCP Server: API', type: 'process' }, { id: '6', label: 'Результат агенту', type: 'end' }], edges: [{ from: '1', to: '2' }, { from: '2', to: '3' }, { from: '2', to: '4' }, { from: '2', to: '5' }, { from: '3', to: '6' }, { from: '4', to: '6' }, { from: '5', to: '6' }] },
+  1101→  1101→        examples: [{ title: 'Конфигурация MCP сервера', code: `const mcpServer = {\n  name: "filesystem-server",\n  command: "npx",\n  args: ["-y", "@modelcontextprotocol/server-filesystem", "/home/user"],\n  tools: [\n    { name: "read_file", description: "Читает файл" },\n    { name: "write_file", description: "Записывает файл" },\n    { name: "list_dir", description: "Показывает содержимое директории" }\n  ]\n};`, language: 'typescript', explanation: 'MCP сервер для работы с файловой системой: три инструмента с чёткими описаниями.' }],
+  1102→  1102→        sandboxType: 'mcp',
+  1103→  1103→        sandboxConfig: { presets: [{ name: 'Создание MCP сервера', description: 'Создай конфигурацию MCP сервера', payload: 'Создай MCP сервер для работы с базой данных PostgreSQL', systemPrompt: 'Ты — эксперт по MCP протоколу. Помоги создать конфигурацию MCP сервера.' }], mode: 'educational' },
+  1104→  1104→        commonMistakes: [{ error: 'Небезопасные права доступа', explanation: 'MCP сервер с полным доступом к файловой системе', correct: 'Ограничивай доступ MCP серверов минимально необходимым' }, { error: 'Нет обработки отключений', explanation: 'Если MCP сервер упадёт, агент зависнет', correct: 'Добавляй timeout и fallback при недоступности MCP сервера' }]
+  1105→  1105→      },
+  1106→  1106→      {
+  1107→  1107→        id: 'st-mcp-2',
+  1108→  1108→        topicId: 't-mcp',
+  1109→  1109→        slug: 'mcp-servers',
+  1110→  1110→        title: 'MCP серверы',
+  1111→  1111→        order: 1,
+  1112→  1112→        introduction: { what: 'MCP сервер — это процесс, который предоставляет инструменты и ресурсы AI-моделям через MCP протокол. Запускается как отдельный сервис с определённой командой и аргументами.', why: 'Серверы инкапсулируют логику работы с внешними системами, предоставляя AI унифицированный интерфейс.', where: 'Серверы могут работать с файлами, базами данных, API, веб-сервисами и любыми другими источниками данных.', problem: 'Без MCP серверов каждая интеграция инструмента требует модификации AI-клиента — дорого и негибко.' },
+  1113→  1113→        theory: { terms: [{ name: 'stdio transport', definition: 'Коммуникация через стандартные потоки ввода-вывода — для локальных серверов' }, { name: 'HTTP+SSE transport', definition: 'Коммуникация через HTTP с Server-Sent Events — для удалённых серверов' }, { name: 'Tool Discovery', definition: 'Автоматическое обнаружение инструментов, предоставляемых MCP сервером' }], principles: ['Каждый сервер независим и самодостаточен', 'Серверы общаются через JSON-RPC', 'Discovery позволяет агенту автоматически узнать доступные инструменты', 'Серверы можно комбинировать для сложных интеграций'], architecture: 'Command + Args → MCP Server Process → JSON-RPC → Tools/Resources', connections: ['Серверы регистрируются в MCP Engine', 'Инструменты серверов — это Tool Skills', 'Безопасность контролируется через Security Engine'] },
+  1114→  1114→        diagramType: 'flow', diagramData: { type: 'flow', nodes: [{ id: '1', label: 'Запуск сервера', type: 'start' }, { id: '2', label: 'Регистрация инструментов', type: 'process' }, { id: '3', label: 'Ожидание запросов', type: 'process' }, { id: '4', label: 'Обработка tool call', type: 'process' }, { id: '5', label: 'Возврат результата', type: 'end' }], edges: [{ from: '1', to: '2' }, { from: '2', to: '3' }, { from: '3', to: '4' }, { from: '4', to: '5' }, { from: '5', to: '3' }] },
+  1115→  1115→        examples: [{ title: 'Запуск MCP сервера', code: `// В конфигурации Claude Desktop:\n{\n  "mcpServers": {\n    "postgres": {\n      "command": "npx",\n      "args": ["-y", "@modelcontextprotocol/server-postgres",\n              "postgresql://localhost/mydb"]\n    },\n    "github": {\n      "command": "npx",\n      "args": ["-y", "@modelcontextprotocol/server-github"],\n      "env": { "GITHUB_TOKEN": "ghp_..." }\n    }\n  }\n}`, language: 'json', explanation: 'Конфигурация двух MCP серверов: PostgreSQL и GitHub. Каждый имеет свою команду запуска и аргументы.' }],
+  1116→  1116→        sandboxType: 'mcp',
+  1117→  1117→        sandboxConfig: { presets: [{ name: 'Конфигурация сервера', description: 'Создай конфигурацию MCP сервера', payload: 'Создай MCP сервер для работы с Slack API', systemPrompt: 'Ты — эксперт по MCP серверам. Создай конфигурацию для подключения к Slack.' }], mode: 'educational' },
+  1118→  1118→        commonMistakes: [{ error: 'Хранение токенов в коде', explanation: 'Секреты в конфигурации сервера — риск утечки', correct: 'Используй переменные окружения для всех секретов' }, { error: 'Нет graceful shutdown', explanation: 'Сервер убивается без завершения операций', correct: 'Обрабатывай SIGTERM и gracefully закрывай соединения' }]
+  1119→  1119→      },
+  1120→  1120→      {
+  1121→  1121→        id: 'st-mcp-3',
+  1122→  1122→        topicId: 't-mcp',
+  1123→  1123→        slug: 'mcp-tools',
+  1124→  1124→        title: 'MCP инструменты',
+  1125→  1125→        order: 2,
+  1126→  1126→        introduction: { what: 'MCP инструменты — это функции, предоставляемые MCP сервером, которые AI-агент может вызывать. Каждый инструмент имеет имя, описание и схему входных параметров.', why: 'Инструменты расширяют возможности AI за пределы генерации текста: чтение файлов, запросы к БД, вызовы API.', where: 'Инструменты автоматически обнаруживаются при подключении к MCP серверу (tool discovery).', problem: 'Без чёткого описания инструментов агент не сможет их корректно вызвать.' },
+  1127→  1127→        theory: { terms: [{ name: 'Input Schema', definition: 'JSON Schema, описывающая параметры инструмента' }, { name: 'Tool Call', definition: 'Вызов инструмента агентом с передачей параметров' }, { name: 'Tool Result', definition: 'Результат выполнения инструмента, возвращаемый агенту' }], principles: ['Каждый инструмент имеет уникальное имя на сервере', 'Описание инструмента должно быть полным и точным', 'Input Schema валидирует параметры перед выполнением', 'Результат всегда в текстовом формате для понимания LLM'], architecture: 'Agent → Tool Call (name + params) → MCP Server → Execute → Tool Result → Agent', connections: ['Инструменты эквивалентны Tool Skills', 'Валидация через Security Engine'] },
+  1128→  1128→        diagramType: 'flow', diagramData: { type: 'flow', nodes: [{ id: '1', label: 'Агент выбирает инструмент', type: 'start' }, { id: '2', label: 'Генерация tool call', type: 'process' }, { id: '3', label: 'Валидация параметров', type: 'decision' }, { id: '4', label: 'Выполнение', type: 'process' }, { id: '5', label: 'Ошибка валидации', type: 'process' }, { id: '6', label: 'Результат агенту', type: 'end' }], edges: [{ from: '1', to: '2' }, { from: '2', to: '3' }, { from: '3', to: '4', label: 'OK' }, { from: '3', to: '5', label: 'Ошибка' }, { from: '4', to: '6' }, { from: '5', to: '2' }] },
+  1129→  1129→        examples: [{ title: 'Определение MCP инструмента', code: `{\n  "name": "query_database",\n  "description": "Выполняет SQL запрос к базе данных и возвращает результаты",\n  "inputSchema": {\n    "type": "object",\n    "properties": {\n      "sql": {\n        "type": "string",\n        "description": "SQL запрос для выполнения (только SELECT)"\n      },\n      "limit": {\n        "type": "number",\n        "description": "Максимум строк в результате",\n        "default": 100\n      }\n    },\n    "required": ["sql"]\n  }\n}`, language: 'json', explanation: 'MCP инструмент для запросов к БД. Заметь: описание ограничивает SQL только SELECT — мера безопасности.' }],
+  1130→  1130→        sandboxType: 'mcp',
+  1131→  1131→        sandboxConfig: { presets: [{ name: 'Создание MCP инструмента', description: 'Создай определение MCP инструмента', payload: 'Создай MCP инструмент для отправки уведомлений в Telegram', systemPrompt: 'Ты — эксперт по MCP инструментам. Создай полное определение с inputSchema.' }], mode: 'educational' },
+  1132→  1132→        commonMistakes: [{ error: 'Нет ограничений на входные данные', explanation: 'SQL injection через MCP инструмент', correct: 'Ограничивай типы запросов, валидируй входные данные в inputSchema' }, { error: 'Слишком большой результат', explanation: 'Инструмент возвращает мегабайты данных, переполняя контекст', correct: 'Ограничивай размер результата через параметр limit' }]
+  1133→  1133→      }
+  1134→  1134→    ]
+  1135→  1135→  },
+  1136→  1136→  // ============================================================
+  1137→  1137→  // RAG
+  1138→  1138→  // ============================================================
+  1139→  1139→  {
+  1140→  1140→    id: 't-rag',
+  1141→  1141→    slug: 'rag',
+  1142→  1142→    title: 'RAG и базы знаний',
+  1143→  1143→    description: 'Освойте Retrieval-Augmented Generation: от обработки документов до векторного поиска и генерации ответов.',
+  1144→  1144→    icon: '📚',
+  1145→  1145→    gradient: categoryGradients.rag,
+  1146→  1146→    order: 6,
+  1147→  1147→    category: 'rag',
+  1148→  1148→    isPublic: true,
+  1149→  1149→    subtopics: [
+  1150→  1150→      {
+  1151→  1151→        id: 'st-rag-1',
+  1152→  1152→        topicId: 't-rag',
+  1153→  1153→        slug: 'what-is-rag',
+  1154→  1154→        title: 'Что такое RAG?',
+  1155→  1155→        order: 0,
+  1156→  1156→        introduction: { what: 'RAG (Retrieval-Augmented Generation) — это метод, объединяющий поиск релевантной информации с генерацией ответа. LLM сначала находит нужные данные в базе знаний, затем генерирует ответ на их основе.', why: 'RAG решает проблему галлюцинаций: вместо выдумывания фактов, модель опирается на реальные документы. Также позволяет обновлять знания без переобучения модели.', where: 'RAG применяется в корпоративных чат-ботах, системах поддержки, анализе документов, образовательных платформах.', problem: 'Без RAG модель ограничена знаниями из обучения и может галлюцинировать. RAG даёт ей доступ к актуальным и проверенным данным.' },
+  1157→  1157→        theory: { terms: [{ name: 'Retrieval', definition: 'Поиск релевантных фрагментов документов по запросу пользователя' }, { name: 'Augmented', definition: 'Дополнение промпта модели найденными фрагментами как контекстом' }, { name: 'Generation', definition: 'Генерация ответа моделью на основе промпта + контекста' }, { name: 'Embedding', definition: 'Векторное представление текста для семантического поиска' }], principles: ['Качество RAG = качество данных + качество поиска + качество генерации', 'Чанки должны быть оптимального размера (200-500 токенов)', 'Ранжирование результатов поиска критично для качества ответа', 'RAG не заменяет fine-tuning, а дополняет его'], architecture: 'Query → Embed → Vector Search → Top-K Chunks → Prompt + Context → LLM → Answer', connections: ['Embeddings хранятся в Knowledge Base', 'Поиск реализуется через RAG Engine', 'Результаты фильтруются через Security Engine'] },
+  1158→  1158→        diagramType: 'flow', diagramData: { type: 'flow', nodes: [{ id: '1', label: 'Запрос пользователя', type: 'start' }, { id: '2', label: 'Embedding запроса', type: 'process' }, { id: '3', label: 'Векторный поиск', type: 'process' }, { id: '4', label: 'Top-K фрагментов', type: 'process' }, { id: '5', label: 'Промпт + контекст', type: 'process' }, { id: '6', label: 'LLM генерация', type: 'process' }, { id: '7', label: 'Ответ', type: 'end' }], edges: [{ from: '1', to: '2' }, { from: '2', to: '3' }, { from: '3', to: '4' }, { from: '4', to: '5' }, { from: '5', to: '6' }, { from: '6', to: '7' }] },
+  1159→  1159→        examples: [{ title: 'Базовый RAG пайплайн', code: 'async function ragQuery(question: string) {\n  // 1. Embed запрос\n  const queryEmbedding = await embed(question);\n  \n  // 2. Поиск релевантных чанков\n  const chunks = await vectorSearch(queryEmbedding, { topK: 5 });\n  \n  // 3. Формируем промпт с контекстом\n  const context = chunks.map(c => c.text).join(\'\\n---\\n\');\n  const prompt = `На основе контекста ответь на вопрос.\\nКонтекст: ${context}\\nВопрос: ${question}`;\n  \n  // 4. Генерация ответа\n  return await llm.generate(prompt);\n}', language: 'typescript', explanation: 'Полный RAG пайплайн: embed → search → augment → generate. Простейшая, но рабочая реализация.' }],
+  1160→  1160→        sandboxType: 'rag',
+  1161→  1161→        sandboxConfig: { presets: [{ name: 'Понимание RAG', description: 'Разбери, как работает RAG', payload: 'Объясни, чем RAG лучше обычного промпта для вопросно-ответных систем', systemPrompt: 'Ты — эксперт по RAG. Объясни преимущества retrieval-augmented generation.' }], mode: 'educational' },
+  1162→  1162→        commonMistakes: [{ error: 'Слишком большие чанки', explanation: 'В контекст не помещается нужная информация, теряется точность', correct: 'Оптимальный размер чанка: 200-500 токенов с перекрытием 50-100' }, { error: 'Нет ранжирования результатов', explanation: 'Нерелевантные чанки в контексте ухудшают ответ', correct: 'Используй re-ranking или скоринг для отбора лучших результатов' }]
+  1163→  1163→      },
+  1164→  1164→      {
+  1165→  1165→        id: 'st-rag-2',
+  1166→  1166→        topicId: 't-rag',
+  1167→  1167→        slug: 'document-processing',
+  1168→  1168→        title: 'Обработка документов',
+  1169→  1169→        order: 1,
+  1170→  1170→        introduction: { what: 'Обработка документов для RAG — это процесс подготовки текста: извлечение, разбиение на чанки, создание эмбеддингов и индексация для быстрого поиска.', why: 'Качество обработки документов напрямую влияет на качество RAG: плохие чанки = плохой поиск = плохие ответы.', where: 'Обработка применяется к PDF, Markdown, HTML, DOCX — любым источникам знаний для RAG-системы.', problem: 'Необработанный документ — это сплошной текст. Без разбиения и индексации поиск по нему невозможен.' },
+  1171→  1171→        theory: { terms: [{ name: 'Chunking', definition: 'Разбиение документа на мелкие фрагменты для индексации и поиска' }, { name: 'Overlap', definition: 'Перекрытие между чанками для сохранения контекста на границах' }, { name: 'Indexing', definition: 'Создание векторного индекса для быстрого семантического поиска' }], principles: ['Чанки должны быть семантически цельными', 'Overlap предотвращает потерю контекста на границах', 'Метаданные (источник, страница) помогают фильтровать', 'Разные типы документов требуют разных стратегий chunking-а'], architecture: 'Document → Extract Text → Chunk → Embed → Index → Ready for Search', connections: ['Чанки хранятся в Knowledge Base', 'Embeddings создаются через Model System', 'Поиск реализуется через RAG Engine'] },
+  1172→  1172→        diagramType: 'flow', diagramData: { type: 'flow', nodes: [{ id: '1', label: 'Загрузить документ', type: 'start' }, { id: '2', label: 'Извлечь текст', type: 'process' }, { id: '3', label: 'Разбить на чанки', type: 'process' }, { id: '4', label: 'Создать эмбеддинги', type: 'process' }, { id: '5', label: 'Индексировать', type: 'process' }, { id: '6', label: 'Готово к поиску', type: 'end' }], edges: [{ from: '1', to: '2' }, { from: '2', to: '3' }, { from: '3', to: '4' }, { from: '4', to: '5' }, { from: '5', to: '6' }] },
+  1173→  1173→        examples: [{ title: 'Chunking с перекрытием', code: `function chunkText(text: string, chunkSize = 500, overlap = 50) {\n  const chunks: string[] = [];\n  let start = 0;\n  while (start < text.length) {\n    chunks.push(text.slice(start, start + chunkSize));\n    start += chunkSize - overlap;\n  }\n  return chunks;\n}`, language: 'typescript', explanation: 'Простейший chunking: текст разбивается на фрагменты по 500 символов с перекрытием 50.' }],
+  1174→  1174→        sandboxType: 'rag',
+  1175→  1175→        sandboxConfig: { presets: [{ name: 'Стратегия chunking', description: 'Выбери стратегию разбиения документа', payload: 'Как лучше разбить на чанки техническую документацию с примерами кода?', systemPrompt: 'Ты — эксперт по обработке документов для RAG. Рекомендуй оптимальную стратегию chunking.' }], mode: 'educational' },
+  1176→  1176→        commonMistakes: [{ error: 'Разбиение по фиксированной длине', explanation: 'Разрывает предложения и теряет смысл', correct: 'Разбивай по предложениям или абзацам, сохраняя семантическую целостность' }, { error: 'Нет метаданных у чанков', explanation: 'Нельзя отследить, откуда пришла информация', correct: 'Добавляй метаданные: источник, страница, заголовок раздела' }]
+  1177→  1177→      },
+  1178→  1178→      {
+  1179→  1179→        id: 'st-rag-3',
+  1180→  1180→        topicId: 't-rag',
+  1181→  1181→        slug: 'vector-search',
+  1182→  1182→        title: 'Векторный поиск',
+  1183→  1183→        order: 2,
+  1184→  1184→        introduction: { what: 'Векторный поиск — это метод нахождения релевантных документов путём сравнения векторных представлений (эмбеддингов) запроса и документов в пространстве высокой размерности.', why: 'В отличие от поиска по ключевым словам, векторный поиск понимает семантику: «как работает AI» найдёт документы про «искусственный интеллект», даже если словосочетания разные.', where: 'Векторный поиск — основа любого RAG-пайплайна. Используется в поисковых системах, чат-ботах, рекомендательных системах.', problem: 'Без векторного поиска RAG ограничен точным совпадением ключевых слов, что непригодно для реальных задач.' },
+  1185→  1185→        theory: { terms: [{ name: 'Embedding', definition: 'Векторное представление текста в многомерном пространстве, кодирующее семантический смысл' }, { name: 'Cosine Similarity', definition: 'Мера похожести двух векторов: от -1 (противоположны) до 1 (идентичны)' }, { name: 'Top-K Retrieval', definition: 'Возврат K наиболее релевантных фрагментов по результатам поиска' }, { name: 'Re-ranking', definition: 'Пересортировка результатов поиска для повышения релевантности' }], principles: ['Эмбеддинги кодируют смысл, а не слова', 'Cosine similarity — стандартная метрика для поиска', 'Top-K должно балансировать между полнотой и точностью', 'Re-ranking улучшает качество после первичного поиска'], architecture: 'Query Embedding → Vector Index → Similarity Search → Top-K → (Optional) Re-rank → Final Results', connections: ['Эмбеддинги создаются через Model System', 'Индекс хранится в Knowledge Base', 'Результаты подаются в RAG Engine'] },
+  1186→  1186→        diagramType: 'graph', diagramData: { type: 'graph', nodes: [{ id: 'q', label: 'Query Vector', group: 'query' }, { id: 'd1', label: 'Doc 1 (0.95)', group: 'relevant' }, { id: 'd2', label: 'Doc 2 (0.87)', group: 'relevant' }, { id: 'd3', label: 'Doc 3 (0.45)', group: 'irrelevant' }, { id: 'd4', label: 'Doc 4 (0.32)', group: 'irrelevant' }], edges: [{ from: 'q', to: 'd1', label: '0.95' }, { from: 'q', to: 'd2', label: '0.87' }, { from: 'q', to: 'd3', label: '0.45' }, { from: 'q', to: 'd4', label: '0.32' }] },
+  1187→  1187→        examples: [{ title: 'Cosine similarity поиск', code: `function cosineSimilarity(a: number[], b: number[]): number {\n  const dot = a.reduce((sum, ai, i) => sum + ai * b[i], 0);\n  const magA = Math.sqrt(a.reduce((sum, ai) => sum + ai * ai, 0));\n  const magB = Math.sqrt(b.reduce((sum, bi) => sum + bi * bi, 0));\n  return dot / (magA * magB);\n}\n\n// Поиск top-K релевантных чанков\nfunction search(queryEmb: number[], chunks: Chunk[], k = 5) {\n  return chunks\n    .map(c => ({ ...c, score: cosineSimilarity(queryEmb, c.embedding) }))\n    .sort((a, b) => b.score - a.score)\n    .slice(0, k);\n}`, language: 'typescript', explanation: 'Простейший векторный поиск: считаем cosine similarity между запросом и каждым чанком, сортируем, берём top-K.' }],
+  1188→  1188→        sandboxType: 'rag',
+  1189→  1189→        sandboxConfig: { presets: [{ name: 'Понимание векторного поиска', description: 'Разбери, как работает векторный поиск', payload: 'Объясни разницу между поиском по ключевым словам и векторным поиском', systemPrompt: 'Ты — эксперт по векторному поиску. Объясни преимущества семантического поиска.' }], mode: 'educational' },
+  1190→  1190→        commonMistakes: [{ error: 'Слишком маленький Top-K', explanation: 'Релевантная информация не попадает в контекст', correct: 'Начинай с Top-K=5, оптимизируй по результатам оценки' }, { error: 'Нет порога релевантности', explanation: 'Нерелевантные документы попадают в контекст', correct: 'Устанавливай минимальный порог similarity (например, 0.7)' }]
+  1191→  1191→      }
+  1192→  1192→    ]
+  1193→  1193→  }
+  1194→  1194→];
+  1195→  1195→
