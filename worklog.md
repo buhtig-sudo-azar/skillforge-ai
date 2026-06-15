@@ -40,3 +40,24 @@ Stage Summary:
 - Responsive design with dark/light theme support
 - Gamification system (XP, levels, achievements, streaks)
 - Lint passes, dev server compiles successfully
+---
+Task ID: model-availability-fix
+Agent: Main Agent
+Task: Fix model availability check, token validation, add ModelAvailabilityPanel
+
+Work Log:
+- Studied llm-red-team-lab reference project token/model implementation
+- Fixed /api/models/route.ts: dynamic fetching from OpenRouter API with 5-min server cache + fallback list
+- Fixed token validation logic: "invalid" only for 401 (invalid_token), not for model errors
+- Created ModelAvailabilityPanel.tsx: check all/individual models, status icons, rate limit badges, latency badges, last check time
+- Updated ModelSelector.tsx: added ModelAvailabilityPanel, fixed verifyResult to include 'check_error' state
+- Updated model-store.ts: added isApplying state, improved fetchAvailableModels
+- Fixed chat route: tracks rate-limited models in SSE model_info events, returns 401 immediately on invalid token
+- Fixed chat-store: marks rate-limited models in model-store from SSE events
+- Updated ModelsView: check all button, per-model status icons, latency badges, better rate limit display
+
+Stage Summary:
+- All model availability features now match llm-red-team-lab implementation
+- Token validation no longer shows false "invalid" for fresh tokens
+- ModelAvailabilityPanel provides full model health dashboard in selector popover
+- Build successful, pushed to GitHub, deploying to Vercel
