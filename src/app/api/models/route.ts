@@ -1,3 +1,5 @@
+import { NextResponse } from 'next/server';
+
 // ============================================================
 // Types
 // ============================================================
@@ -16,39 +18,32 @@ interface ModelEntry {
 
 const FREE_MODELS: ModelEntry[] = [
   {
-    name: 'Llama 3.3 70B Instruct',
-    id: 'meta-llama/llama-3.3-70b-instruct:free',
+    name: 'Gemma 3 27B',
+    id: 'google/gemma-3-27b-it:free',
+    isFree: true,
+    contextWindow: 131_072,
+    provider: 'Google',
+  },
+  {
+    name: 'Llama 4 Maverick',
+    id: 'meta-llama/llama-4-maverick:free',
     isFree: true,
     contextWindow: 131_072,
     provider: 'Meta',
   },
   {
-    name: 'Gemma 2 9B IT',
-    id: 'google/gemma-2-9b-it:free',
+    name: 'Qwen 3 32B',
+    id: 'qwen/qwen3-32b:free',
     isFree: true,
-    contextWindow: 8_192,
-    provider: 'Google',
-  },
-  {
-    name: 'Mistral 7B Instruct',
-    id: 'mistralai/mistral-7b-instruct:free',
-    isFree: true,
-    contextWindow: 32_768,
-    provider: 'Mistral AI',
-  },
-  {
-    name: 'Phi-3 Mini 128K Instruct',
-    id: 'microsoft/phi-3-mini-128k-instruct:free',
-    isFree: true,
-    contextWindow: 128_000,
-    provider: 'Microsoft',
-  },
-  {
-    name: 'Qwen 2 7B Instruct',
-    id: 'qwen/qwen-2-7b-instruct:free',
-    isFree: true,
-    contextWindow: 32_768,
+    contextWindow: 131_072,
     provider: 'Alibaba',
+  },
+  {
+    name: 'Mistral Small 3.1',
+    id: 'mistralai/mistral-small-3.1-24b-instruct:free',
+    isFree: true,
+    contextWindow: 131_072,
+    provider: 'Mistral',
   },
 ];
 
@@ -58,7 +53,6 @@ const FREE_MODELS: ModelEntry[] = [
 
 export async function GET() {
   try {
-    // Check if an OpenRouter API key is configured on the server
     const hasOpenRouterKey = Boolean(process.env.OPENROUTER_API_KEY);
 
     const models: ModelEntry[] = [...FREE_MODELS];
@@ -74,7 +68,7 @@ export async function GET() {
       });
     }
 
-    return Response.json({
+    return NextResponse.json({
       models,
       hasOpenRouterKey,
     });
@@ -86,6 +80,6 @@ export async function GET() {
 
     console.error('[/api/models] Error:', message);
 
-    return Response.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

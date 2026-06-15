@@ -114,6 +114,7 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
         id: uid(),
         role: 'user',
         content,
+        model: model || 'auto',
         timestamp: new Date(),
       };
 

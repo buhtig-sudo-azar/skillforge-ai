@@ -1,5 +1,12 @@
-import ZAI from 'z-ai-web-dev-sdk';
-import type { ChatMessage } from '@/types';
+import { NextRequest } from 'next/server';
+
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
+const PRIMARY_MODEL = 'google/gemma-3-27b-it:free';
+const FALLBACK_MODELS = [
+  'meta-llama/llama-4-maverick:free',
+  'qwen/qwen3-32b:free',
+  'mistralai/mistral-small-3.1-24b-instruct:free',
+];
 
 // ============================================================
 // Types
@@ -12,48 +19,15 @@ interface ChatRequestMessage {
 
 interface ChatRequestBody {
   messages: ChatRequestMessage[];
-  systemPrompt: string;
-  model: string;
-  apiToken?: string;
+  systemPrompt?: string;
+  model?: string;
   stream?: boolean;
-}
-
-interface SSEChunk {
-  choices: Array<{
-    delta: { content?: string };
-    finish_reason?: string | null;
-  }>;
-}
-
-interface ModelInfoEvent {
-  type: 'model_info';
-  model: string;
-  rateLimited: string[];
+  apiToken?: string;
 }
 
 // ============================================================
 // Helpers
 // ============================================================
-
-/** Validate that the request body has the required fields */
-function validateBody(body: Partial<ChatRequestBody>): body is ChatRequestBody {
-  if (!body.messages || !Array.isArray(body.messages)) return false;
-  if (typeof body.systemPrompt !== 'string') return false;
-  if (typeof body.model !== 'string') return false;
-  for (const msg of body.messages) {
-    if (!msg.role || !msg.content) return false;
-    if (!['system', 'user', 'assistant'].includes(msg.role)) return false;
-  }
-  return true;
-}
-
-/** Build the full message array with the system prompt prepended */
-function buildMessages(body: ChatRequestBody): ChatRequestMessage[] {
-  return [
-    { role: 'system', content: body.systemPrompt },
-    ...body.messages,
-  ];
-}
 
 /** Create an SSE-encoded data line */
 function sseData(payload: string): string {
@@ -69,73 +43,94 @@ function sseJSON(data: unknown): string {
 // POST /api/chat
 // ============================================================
 
-export async function POST(request: Request) {
+export async function POST(req: NextRequest) {
+  let body: ChatRequestBody;
+
   try {
-    // ---- Parse & validate ----
-    const rawBody: Partial<ChatRequestBody> = await request.json();
+    body = await req.json();
+  } catch {
+    return new Response(JSON.stringify({ error: 'Неверный формат запроса' }), { status: 400 });
+  }
 
-    if (!validateBody(rawBody)) {
-      return Response.json(
-        { error: 'Неверный формат запроса. Обязательные поля: messages (массив), systemPrompt (строка), model (строка).' },
-        { status: 400 },
-      );
-    }
+  const { messages, model: requestedModel, stream: shouldStream = true } = body;
 
-    const body: ChatRequestBody = rawBody;
-    const fullMessages = buildMessages(body);
-    const shouldStream = body.stream !== false; // default: true
+  if (!messages || !Array.isArray(messages) || messages.length === 0) {
+    return new Response(
+      JSON.stringify({ error: 'Поле messages обязательно и должно быть непустым массивом' }),
+      { status: 400 },
+    );
+  }
 
-    // ---- Initialise SDK ----
-    const zai = await ZAI.create();
+  // Determine models to try with fallback
+  const modelsToTry = requestedModel && requestedModel !== 'auto'
+    ? [requestedModel, ...FALLBACK_MODELS]
+    : [PRIMARY_MODEL, ...FALLBACK_MODELS];
 
-    // ---- Call LLM ----
-    const completion = await zai.chat.completions.create({
-      messages: fullMessages,
-      model: body.model || 'default',
-      stream: shouldStream,
-    });
+  for (const model of modelsToTry) {
+    try {
+      const apiKey = OPENROUTER_API_KEY;
 
-    // ---- Streaming response ----
-    if (shouldStream && Symbol.asyncIterator in Object(completion)) {
+      if (!apiKey) {
+        // No API key configured — skip OpenRouter, try next
+        continue;
+      }
+
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://skillforge-ai-plum.vercel.app/',
+          'X-Title': 'SkillForge AI',
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          stream: shouldStream,
+          max_tokens: 2048,
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 429) continue; // rate limited — try next model
+        const errorText = await response.text().catch(() => '');
+        console.error(`[/api/chat] Model ${model} returned ${response.status}: ${errorText}`);
+        continue;
+      }
+
+      if (!shouldStream) {
+        // Non-streaming response
+        const result = await response.json();
+        return new Response(JSON.stringify(result), {
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Stream SSE response — inject model_info event then pass through
       const encoder = new TextEncoder();
+      const modelInfoEvent = sseJSON({
+        type: 'model_info',
+        model,
+        rateLimited: [],
+      });
 
       const stream = new ReadableStream({
         async start(controller) {
+          // Emit model_info event first so the client knows which model answered
+          controller.enqueue(encoder.encode(modelInfoEvent));
+
+          const reader = response.body!.getReader();
+          const decoder = new TextDecoder();
           try {
-            // Emit model_info event so the client knows which model answered
-            const modelInfo: ModelInfoEvent = {
-              type: 'model_info',
-              model: body.model,
-              rateLimited: [],
-            };
-            controller.enqueue(encoder.encode(sseJSON(modelInfo)));
-
-            for await (const chunk of completion as AsyncIterable<unknown>) {
-              const c = chunk as Record<string, unknown>;
-              const choices = c.choices as Array<Record<string, unknown>> | undefined;
-              const delta = choices?.[0]?.delta as Record<string, unknown> | undefined;
-              const content = delta?.content as string | undefined;
-
-              if (content) {
-                const sseChunk: SSEChunk = {
-                  choices: [{ delta: { content }, finish_reason: null }],
-                };
-                controller.enqueue(encoder.encode(sseJSON(sseChunk)));
-              }
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              const chunk = decoder.decode(value, { stream: true });
+              controller.enqueue(encoder.encode(chunk));
             }
-
-            // Signal stream end
-            controller.enqueue(encoder.encode(sseData('[DONE]')));
-            controller.close();
-          } catch (streamError: unknown) {
-            const message =
-              streamError instanceof Error
-                ? streamError.message
-                : 'Ошибка при потоковой генерации ответа';
-            controller.enqueue(
-              encoder.encode(sseJSON({ error: message })),
-            );
-            controller.enqueue(encoder.encode(sseData('[DONE]')));
+          } catch (streamError) {
+            console.error('[/api/chat] Stream error:', streamError);
+          } finally {
             controller.close();
           }
         },
@@ -145,32 +140,50 @@ export async function POST(request: Request) {
         headers: {
           'Content-Type': 'text/event-stream',
           'Cache-Control': 'no-cache',
-          Connection: 'keep-alive',
+          'Connection': 'keep-alive',
         },
       });
+    } catch (e) {
+      console.error(`[/api/chat] Error with model ${model}:`, e);
+      continue;
     }
-
-    // ---- Non-streaming (fallback) ----
-    const result = completion as Record<string, unknown>;
-    const choices = result.choices as Array<Record<string, unknown>> | undefined;
-    const message = choices?.[0]?.message as Record<string, unknown> | undefined;
-    const content = message?.content as string | undefined;
-
-    return Response.json({
-      choices: [
-        {
-          message: { role: 'assistant', content: content ?? '' },
-          finish_reason: 'stop',
-        },
-      ],
-      model: body.model,
-    });
-  } catch (error: unknown) {
-    const message =
-      error instanceof Error ? error.message : 'Произошла неизвестная ошибка при обращении к LLM';
-
-    console.error('[/api/chat] Error:', message);
-
-    return Response.json({ error: message }, { status: 500 });
   }
+
+  // All models failed — return a helpful fallback response
+  // Return a simulated streaming response so the UI still works
+  const fallbackContent = 'Извините, все модели временно недоступны. Пожалуйста, попробуйте позже или переключитесь в образовательный режим в песочнице.';
+
+  if (shouldStream) {
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      start(controller) {
+        // model_info event
+        controller.enqueue(encoder.encode(sseJSON({
+          type: 'model_info',
+          model: 'fallback',
+          rateLimited: modelsToTry,
+        })));
+        // content event
+        controller.enqueue(encoder.encode(sseJSON({
+          choices: [{ delta: { content: fallbackContent }, finish_reason: null }],
+        })));
+        // done event
+        controller.enqueue(encoder.encode(sseData('[DONE]')));
+        controller.close();
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+    });
+  }
+
+  return new Response(
+    JSON.stringify({ error: 'Все модели недоступны', content: fallbackContent }),
+    { status: 503 },
+  );
 }

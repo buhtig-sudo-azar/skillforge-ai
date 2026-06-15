@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { topics } from '@/data/topics';
-import type { Subtopic, DiagramData } from '@/types';
+import { DiagramRenderer } from '@/components/diagrams/DiagramRenderer';
+import type { Subtopic, DiagramType, DiagramData } from '@/types';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -23,52 +24,6 @@ const sectionVariants = {
   visible: { opacity: 1, y: 0 },
 };
 
-function DiagramPlaceholder({ diagramType, diagramData }: { diagramType: string; diagramData?: DiagramData }) {
-  const getSummary = () => {
-    if (!diagramData) return 'Нет данных';
-    switch (diagramData.type) {
-      case 'flow':
-        return `${diagramData.nodes.length} узлов, ${diagramData.edges.length} связей`;
-      case 'tree':
-        return `Корень: ${diagramData.root.label}`;
-      case 'graph':
-        return `${diagramData.nodes.length} узлов, ${diagramData.edges.length} связей`;
-      case 'cause-effect':
-        return `${diagramData.causes.length} причин, ${diagramData.effects.length} следствий`;
-      case 'attack-tree':
-        return `Цель: ${diagramData.goal}`;
-      case 'knowledge-map':
-        return `${diagramData.concepts.length} концепций, ${diagramData.relations.length} связей`;
-      default:
-        return 'Данные диаграммы';
-    }
-  };
-
-  const typeLabels: Record<string, string> = {
-    flow: 'Блок-схема',
-    tree: 'Дерево',
-    graph: 'Граф',
-    'cause-effect': 'Причина-Следствие',
-    'attack-tree': 'Дерево атак',
-    'knowledge-map': 'Карта знаний',
-  };
-
-  return (
-    <div className="rounded-lg border-2 border-dashed border-muted-foreground/20 bg-muted/30 p-6 text-center">
-      <GitBranch className="mx-auto mb-2 size-8 text-muted-foreground/50" />
-      <div className="text-sm font-medium">{typeLabels[diagramType] ?? diagramType}</div>
-      <div className="mt-1 text-xs text-muted-foreground">{getSummary()}</div>
-      {diagramData && (
-        <div className="mt-3 rounded bg-muted p-2">
-          <pre className="overflow-x-auto text-left text-[10px] text-muted-foreground">
-            {JSON.stringify(diagramData, null, 2).slice(0, 500)}
-            {JSON.stringify(diagramData).length > 500 && '...'}
-          </pre>
-        </div>
-      )}
-    </div>
-  );
-}
 
 function findSubtopic(categorySlug: string, subtopicSlug: string): Subtopic | null {
   const topic = topics.find((t) => t.slug === categorySlug);
@@ -247,7 +202,7 @@ export function TopicView() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <DiagramPlaceholder diagramType={diagramType} diagramData={diagramData} />
+                <DiagramRenderer diagramType={diagramType as DiagramType} diagramData={diagramData!} />
               </CardContent>
             </Card>
           </motion.div>

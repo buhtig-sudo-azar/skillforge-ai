@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/command';
 import { Badge } from '@/components/ui/badge';
 import { agentPersonas } from '@/data/agent-data';
-import { useChatStore, useChatActions, useChatMessages, useChatIsLoading } from '@/store/chat-store';
+import { useChatStore, useChatActions, useChatMessages, useChatIsLoading, useChatError } from '@/store/chat-store';
 import { useModelStore, useSelectedModel, useApiToken, useModelActions } from '@/store/model-store';
 import { ChatMessage } from './ChatMessage';
 
@@ -169,6 +169,7 @@ export function AgentChatPopup() {
   // Store hooks
   const messages = useChatMessages();
   const isLoading = useChatIsLoading();
+  const chatError = useChatError();
   const chatActions = useChatActions();
   const selectedModel = useSelectedModel();
   const apiToken = useApiToken();
@@ -358,6 +359,7 @@ export function AgentChatPopup() {
                           id: 'greeting',
                           role: 'assistant',
                           content: activeAgent.greeting,
+                          model: 'system',
                           timestamp: new Date(),
                         }}
                         agentAvatar={activeAgent.avatar}
@@ -382,6 +384,25 @@ export function AgentChatPopup() {
                   {/* Индикатор загрузки */}
                   {isLoading && messages[messages.length - 1]?.content === '' && (
                     <LoadingDots />
+                  )}
+
+                  {/* Ошибка */}
+                  {chatError && !isLoading && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mx-4 my-2 rounded-lg border border-destructive/20 bg-destructive/5 p-3"
+                    >
+                      <p className="text-xs text-destructive">{chatError}</p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="mt-1.5 h-7 gap-1 text-xs text-muted-foreground"
+                        onClick={() => chatActions.retryLastMessage()}
+                      >
+                        Попробовать снова
+                      </Button>
+                    </motion.div>
                   )}
 
                   {/* Якорь для автоскролла */}
