@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useCallback, useRef, useEffect } from 'react';
 import type { DiagramType, DiagramData, FlowDiagramData, TreeDiagramData, GraphDiagramData, CauseEffectData, AttackTreeData, KnowledgeMapData } from '@/types';
 
 // ============================================================
@@ -10,7 +11,7 @@ const nodeColors: Record<string, { fill: string; stroke: string; text: string }>
   start: { fill: '#dcfce7', stroke: '#22c55e', text: '#166534' },
   process: { fill: '#dbeafe', stroke: '#3b82f6', text: '#1e40af' },
   decision: { fill: '#fef3c7', stroke: '#f59e0b', text: '#92400e' },
-  end: { fill: '#fee2e2', stroke: '#ef4444', text: '#991b1b' },
+  end: { fill: '#fee2e2', stroke: '#ef4444', text: '#991b14' },
   default: { fill: '#f3f4f6', stroke: '#9ca3af', text: '#374151' },
   cause: { fill: '#fce7f3', stroke: '#ec4899', text: '#9d174d' },
   effect: { fill: '#e0e7ff', stroke: '#6366f1', text: '#3730a3' },
@@ -47,17 +48,113 @@ function ArrowMarker() {
 }
 
 // ============================================================
+// Diagram Tooltip — кастомный тултип поверх SVG
+// Работает при наведении (десктоп) и при тапе (мобилки)
+// ============================================================
+
+interface TooltipState {
+  text: string;
+  x: number;
+  y: number;
+  visible: boolean;
+}
+
+function DiagramTooltip({ tooltip }: { tooltip: TooltipState }) {
+  if (!tooltip.visible) return null;
+
+  return (
+    <div
+      className="fixed z-[100] max-w-[280px] px-3 py-2 text-xs font-medium rounded-lg shadow-lg border border-border bg-popover text-popover-foreground pointer-events-none animate-in fade-in-0 zoom-in-95 duration-100"
+      style={{
+        left: tooltip.x,
+        top: tooltip.y,
+        transform: 'translate(-50%, -110%)',
+      }}
+    >
+      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-2 h-2 rotate-45 border-r border-b border-border bg-popover" />
+      {tooltip.text}
+    </div>
+  );
+}
+
+// Хук для управления тултипом
+function useDiagramTooltip() {
+  const [tooltip, setTooltip] = useState<TooltipState>({ text: '', x: 0, y: 0, visible: false });
+  const tapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const showTooltip = useCallback((e: React.MouseEvent | React.TouchEvent, fullText: string) => {
+    if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
+
+    let clientX: number;
+    let clientY: number;
+
+    if ('touches' in e) {
+      clientX = e.touches[0]?.clientX ?? 0;
+      clientY = e.touches[0]?.clientY ?? 0;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+
+    setTooltip({ text: fullText, x: clientX, y: clientY - 8, visible: true });
+  }, []);
+
+  const hideTooltip = useCallback(() => {
+    setTooltip(prev => ({ ...prev, visible: false }));
+  }, []);
+
+  const handleTap = useCallback((e: React.TouchEvent, fullText: string) => {
+    e.preventDefault();
+    if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
+
+    let clientX = e.touches[0]?.clientX ?? 0;
+    let clientY = e.touches[0]?.clientY ?? 0;
+
+    setTooltip(prev => {
+      // Если уже показан — скрываем
+      if (prev.visible && prev.text === fullText) {
+        return { text: '', x: 0, y: 0, visible: false };
+      }
+      return { text: fullText, x: clientX, y: clientY - 8, visible: true };
+    });
+
+    // Автоскрытие через 3 секунды
+    tapTimeoutRef.current = setTimeout(() => {
+      setTooltip(prev => ({ ...prev, visible: false }));
+    }, 3000);
+  }, []);
+
+  // Очистка при размонтировании
+  useEffect(() => {
+    return () => {
+      if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
+    };
+  }, []);
+
+  return { tooltip, showTooltip, hideTooltip, handleTap };
+}
+
+// Утилита: обрезать текст для SVG
+function truncateText(text: string, maxLen: number): string {
+  return text.length > maxLen ? text.slice(0, maxLen - 2) + '…' : text;
+}
+
+// ============================================================
 // Flow Diagram Renderer
 // ============================================================
 
-function FlowDiagram({ data }: { data: FlowDiagramData }) {
-  const nodeW = 180;
-  const nodeH = 40;
+function FlowDiagram({ data, onShowTooltip, onHideTooltip, onTapNode }: {
+  data: FlowDiagramData;
+  onShowTooltip: (e: React.MouseEvent | React.TouchEvent, text: string) => void;
+  onHideTooltip: () => void;
+  onTapNode: (e: React.TouchEvent, text: string) => void;
+}) {
+  const nodeW = 220; // увеличено с 180
+  const nodeH = 44;  // увеличено с 40
   const gapY = 60;
-  const startX = 250 - nodeW / 2;
+  const startX = 280 - nodeW / 2; // центр шире
   const startY = 25;
 
-  // Position nodes vertically
   const positions: Record<string, { x: number; y: number; type?: string }> = {};
   data.nodes.forEach((node, i) => {
     positions[node.id] = {
@@ -70,7 +167,7 @@ function FlowDiagram({ data }: { data: FlowDiagramData }) {
   const svgH = startY + data.nodes.length * (nodeH + gapY) + 10;
 
   return (
-    <svg viewBox={`0 0 500 ${Math.max(svgH, 300)}`} className="w-full" style={{ maxHeight: '400px' }}>
+    <svg viewBox={`0 0 560 ${Math.max(svgH, 300)}`} className="w-full" style={{ maxHeight: '400px' }}>
       <ArrowMarker />
 
       {/* Edges */}
@@ -85,14 +182,12 @@ function FlowDiagram({ data }: { data: FlowDiagramData }) {
         const y2 = to.y;
 
         const midY = (y1 + y2) / 2;
-        const labelX = x1 + (edge.label ? 10 : 0);
-        const labelY = midY;
 
         return (
           <g key={`edge-${i}`}>
             <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#6b7280" strokeWidth="1.5" markerEnd="url(#arrowhead)" />
             {edge.label && (
-              <text x={labelX} y={labelY} fontSize="11" fill="#6b7280" textAnchor="start" dominantBaseline="middle">
+              <text x={x1 + 10} y={midY} fontSize="11" fill="#6b7280" textAnchor="start" dominantBaseline="middle">
                 {edge.label}
               </text>
             )}
@@ -106,18 +201,25 @@ function FlowDiagram({ data }: { data: FlowDiagramData }) {
         if (!pos) return null;
         const style = getNodeStyle(pos.type);
         const isDecision = pos.type === 'decision';
+        const displayLabel = truncateText(node.label, 30);
+        const isTruncated = node.label.length > 30;
 
         return (
-          <g key={node.id}>
+          <g
+            key={node.id}
+            onMouseEnter={isTruncated ? (e) => onShowTooltip(e, node.label) : undefined}
+            onMouseLeave={isTruncated ? onHideTooltip : undefined}
+            onTouchStart={isTruncated ? (e) => onTapNode(e, node.label) : undefined}
+            className={isTruncated ? 'cursor-pointer' : ''}
+          >
+            <title>{node.label}</title>
             {isDecision ? (
               <>
                 <rect
                   x={pos.x + 15} y={pos.y}
                   width={nodeW - 30} height={nodeH}
                   rx={4} fill={style.fill} stroke={style.stroke} strokeWidth="1.5"
-                  transform={`rotate(0, ${pos.x + nodeW / 2}, ${pos.y + nodeH / 2})`}
                 />
-                {/* Diamond shape hint via a small diamond indicator */}
                 <polygon
                   points={`${pos.x + nodeW / 2},${pos.y - 4} ${pos.x + nodeW / 2 + 6},${pos.y} ${pos.x + nodeW / 2},${pos.y + 4} ${pos.x + nodeW / 2 - 6},${pos.y}`}
                   fill={style.stroke}
@@ -139,7 +241,7 @@ function FlowDiagram({ data }: { data: FlowDiagramData }) {
               dominantBaseline="middle"
               fontWeight="500"
             >
-              {node.label.length > 24 ? node.label.slice(0, 22) + '…' : node.label}
+              {displayLabel}
             </text>
           </g>
         );
@@ -179,23 +281,35 @@ function layoutTree(
   }
 
   const x = (childPositions[0].x + childPositions[childPositions.length - 1].x) / 2;
-  const result: TreeNodeWithPos = {
+  return {
     id: node.id,
     label: node.label,
     children: childPositions,
     x,
     y: depth * ySpacing + 30,
   };
-
-  return result;
 }
 
-function renderTreeNode(node: TreeNodeWithPos): React.ReactNode {
-  const nodeW = 140;
-  const nodeH = 32;
+function renderTreeNode(
+  node: TreeNodeWithPos,
+  onShowTooltip: (e: React.MouseEvent | React.TouchEvent, text: string) => void,
+  onHideTooltip: () => void,
+  onTapNode: (e: React.TouchEvent, text: string) => void,
+): React.ReactNode {
+  const nodeW = 170; // увеличено с 140
+  const nodeH = 36;  // увеличено с 32
+  const displayLabel = truncateText(node.label, 22);
+  const isTruncated = node.label.length > 22;
 
   return (
-    <g key={node.id}>
+    <g
+      key={node.id}
+      onMouseEnter={isTruncated ? (e) => onShowTooltip(e, node.label) : undefined}
+      onMouseLeave={isTruncated ? onHideTooltip : undefined}
+      onTouchStart={isTruncated ? (e) => onTapNode(e, node.label) : undefined}
+      className={isTruncated ? 'cursor-pointer' : ''}
+    >
+      <title>{node.label}</title>
       {/* Lines to children */}
       {node.children?.map((child) => (
         <line
@@ -228,25 +342,29 @@ function renderTreeNode(node: TreeNodeWithPos): React.ReactNode {
         dominantBaseline="middle"
         fontWeight="500"
       >
-        {node.label.length > 18 ? node.label.slice(0, 16) + '…' : node.label}
+        {displayLabel}
       </text>
       {/* Recurse children */}
-      {node.children?.map((child) => renderTreeNode(child))}
+      {node.children?.map((child) => renderTreeNode(child, onShowTooltip, onHideTooltip, onTapNode))}
     </g>
   );
 }
 
-function TreeDiagram({ data }: { data: TreeDiagramData }) {
-  const xOffset = { value: 80 };
-  const xSpacing = 160;
+function TreeDiagram({ data, onShowTooltip, onHideTooltip, onTapNode }: {
+  data: TreeDiagramData;
+  onShowTooltip: (e: React.MouseEvent | React.TouchEvent, text: string) => void;
+  onHideTooltip: () => void;
+  onTapNode: (e: React.TouchEvent, text: string) => void;
+}) {
+  const xOffset = { value: 90 };
+  const xSpacing = 180; // увеличено с 160
   const ySpacing = 60;
   const layout = layoutTree(data.root, 0, xOffset, xSpacing, ySpacing);
 
-  // Find bounds
   let maxX = 0;
   let maxY = 0;
   function findBounds(node: TreeNodeWithPos) {
-    maxX = Math.max(maxX, node.x + 80);
+    maxX = Math.max(maxX, node.x + 90);
     maxY = Math.max(maxY, node.y + 20);
     node.children?.forEach(findBounds);
   }
@@ -254,7 +372,7 @@ function TreeDiagram({ data }: { data: TreeDiagramData }) {
 
   return (
     <svg viewBox={`0 0 ${Math.max(maxX, 500)} ${Math.max(maxY + 30, 300)}`} className="w-full" style={{ maxHeight: '400px' }}>
-      {renderTreeNode(layout)}
+      {renderTreeNode(layout, onShowTooltip, onHideTooltip, onTapNode)}
     </svg>
   );
 }
@@ -263,12 +381,16 @@ function TreeDiagram({ data }: { data: TreeDiagramData }) {
 // Graph Diagram Renderer
 // ============================================================
 
-function GraphDiagram({ data }: { data: GraphDiagramData }) {
-  const cx = 250;
-  const cy = 150;
-  const radius = 100;
+function GraphDiagram({ data, onShowTooltip, onHideTooltip, onTapNode }: {
+  data: GraphDiagramData;
+  onShowTooltip: (e: React.MouseEvent | React.TouchEvent, text: string) => void;
+  onHideTooltip: () => void;
+  onTapNode: (e: React.TouchEvent, text: string) => void;
+}) {
+  const cx = 280;
+  const cy = 160;
+  const radius = 120;
 
-  // Position nodes in a circle
   const positions: Record<string, { x: number; y: number; label: string; group?: string }> = {};
   data.nodes.forEach((node, i) => {
     const angle = (2 * Math.PI * i) / data.nodes.length - Math.PI / 2;
@@ -281,7 +403,7 @@ function GraphDiagram({ data }: { data: GraphDiagramData }) {
   });
 
   return (
-    <svg viewBox="0 0 500 300" className="w-full" style={{ maxHeight: '400px' }}>
+    <svg viewBox="0 0 560 320" className="w-full" style={{ maxHeight: '400px' }}>
       <ArrowMarker />
 
       {/* Edges */}
@@ -290,11 +412,10 @@ function GraphDiagram({ data }: { data: GraphDiagramData }) {
         const to = positions[edge.to];
         if (!from || !to) return null;
 
-        // Shorten line to not overlap with circles
         const dx = to.x - from.x;
         const dy = to.y - from.y;
         const len = Math.sqrt(dx * dx + dy * dy);
-        const r = 24;
+        const r = 30;
         const x1 = from.x + (dx / len) * r;
         const y1 = from.y + (dy / len) * r;
         const x2 = to.x - (dx / len) * r;
@@ -320,11 +441,20 @@ function GraphDiagram({ data }: { data: GraphDiagramData }) {
         const pos = positions[node.id];
         if (!pos) return null;
         const style = getNodeStyle(pos.group);
+        const displayLabel = truncateText(pos.label, 12);
+        const isTruncated = pos.label.length > 12;
         return (
-          <g key={node.id}>
-            <circle cx={pos.x} cy={pos.y} r={24} fill={style.fill} stroke={style.stroke} strokeWidth="1.5" />
+          <g
+            key={node.id}
+            onMouseEnter={isTruncated ? (e) => onShowTooltip(e, pos.label) : undefined}
+            onMouseLeave={isTruncated ? onHideTooltip : undefined}
+            onTouchStart={isTruncated ? (e) => onTapNode(e, pos.label) : undefined}
+            className={isTruncated ? 'cursor-pointer' : ''}
+          >
+            <title>{pos.label}</title>
+            <circle cx={pos.x} cy={pos.y} r={30} fill={style.fill} stroke={style.stroke} strokeWidth="1.5" />
             <text x={pos.x} y={pos.y} fontSize="10" fill={style.text} textAnchor="middle" dominantBaseline="middle" fontWeight="500">
-              {pos.label.length > 8 ? pos.label.slice(0, 6) + '…' : pos.label}
+              {displayLabel}
             </text>
           </g>
         );
@@ -337,11 +467,18 @@ function GraphDiagram({ data }: { data: GraphDiagramData }) {
 // Cause-Effect Diagram Renderer
 // ============================================================
 
-function CauseEffectDiagram({ data }: { data: CauseEffectData }) {
-  const causeX = 60;
-  const effectX = 380;
+function CauseEffectDiagram({ data, onShowTooltip, onHideTooltip, onTapNode }: {
+  data: CauseEffectData;
+  onShowTooltip: (e: React.MouseEvent | React.TouchEvent, text: string) => void;
+  onHideTooltip: () => void;
+  onTapNode: (e: React.TouchEvent, text: string) => void;
+}) {
+  const causeX = 40;
+  const effectX = 370;
   const startY = 30;
-  const spacing = 44;
+  const spacing = 48;
+  const nodeW = 130;  // увеличено с 100
+  const nodeH = 36;   // увеличено с 30
 
   const causePositions: Record<string, number> = {};
   data.causes.forEach((c, i) => {
@@ -356,21 +493,30 @@ function CauseEffectDiagram({ data }: { data: CauseEffectData }) {
   const svgH = Math.max(data.causes.length, data.effects.length) * spacing + 40;
 
   return (
-    <svg viewBox={`0 0 500 ${Math.max(svgH, 200)}`} className="w-full" style={{ maxHeight: '400px' }}>
+    <svg viewBox={`0 0 540 ${Math.max(svgH, 200)}`} className="w-full" style={{ maxHeight: '400px' }}>
       <ArrowMarker />
 
       {/* Section headers */}
-      <text x={causeX + 50} y={18} fontSize="12" fill="#9d174d" textAnchor="middle" fontWeight="700">Причины</text>
-      <text x={effectX + 50} y={18} fontSize="12" fill="#3730a3" textAnchor="middle" fontWeight="700">Следствия</text>
+      <text x={causeX + nodeW / 2} y={18} fontSize="12" fill="#9d174d" textAnchor="middle" fontWeight="700">Причины</text>
+      <text x={effectX + nodeW / 2} y={18} fontSize="12" fill="#3730a3" textAnchor="middle" fontWeight="700">Следствия</text>
 
       {/* Causes */}
       {data.causes.map((cause) => {
         const y = causePositions[cause.id];
+        const displayLabel = truncateText(cause.label, 18);
+        const isTruncated = cause.label.length > 18;
         return (
-          <g key={cause.id}>
-            <rect x={causeX} y={y} width={100} height={30} rx={6} fill={nodeColors.cause.fill} stroke={nodeColors.cause.stroke} strokeWidth="1.5" />
-            <text x={causeX + 50} y={y + 15} fontSize="10" fill={nodeColors.cause.text} textAnchor="middle" dominantBaseline="middle">
-              {cause.label.length > 14 ? cause.label.slice(0, 12) + '…' : cause.label}
+          <g
+            key={cause.id}
+            onMouseEnter={isTruncated ? (e) => onShowTooltip(e, cause.label) : undefined}
+            onMouseLeave={isTruncated ? onHideTooltip : undefined}
+            onTouchStart={isTruncated ? (e) => onTapNode(e, cause.label) : undefined}
+            className={isTruncated ? 'cursor-pointer' : ''}
+          >
+            <title>{cause.label}</title>
+            <rect x={causeX} y={y} width={nodeW} height={nodeH} rx={6} fill={nodeColors.cause.fill} stroke={nodeColors.cause.stroke} strokeWidth="1.5" />
+            <text x={causeX + nodeW / 2} y={y + nodeH / 2} fontSize="10" fill={nodeColors.cause.text} textAnchor="middle" dominantBaseline="middle">
+              {displayLabel}
             </text>
           </g>
         );
@@ -379,11 +525,20 @@ function CauseEffectDiagram({ data }: { data: CauseEffectData }) {
       {/* Effects */}
       {data.effects.map((effect) => {
         const y = effectPositions[effect.id];
+        const displayLabel = truncateText(effect.label, 18);
+        const isTruncated = effect.label.length > 18;
         return (
-          <g key={effect.id}>
-            <rect x={effectX} y={y} width={100} height={30} rx={6} fill={nodeColors.effect.fill} stroke={nodeColors.effect.stroke} strokeWidth="1.5" />
-            <text x={effectX + 50} y={y + 15} fontSize="10" fill={nodeColors.effect.text} textAnchor="middle" dominantBaseline="middle">
-              {effect.label.length > 14 ? effect.label.slice(0, 12) + '…' : effect.label}
+          <g
+            key={effect.id}
+            onMouseEnter={isTruncated ? (e) => onShowTooltip(e, effect.label) : undefined}
+            onMouseLeave={isTruncated ? onHideTooltip : undefined}
+            onTouchStart={isTruncated ? (e) => onTapNode(e, effect.label) : undefined}
+            className={isTruncated ? 'cursor-pointer' : ''}
+          >
+            <title>{effect.label}</title>
+            <rect x={effectX} y={y} width={nodeW} height={nodeH} rx={6} fill={nodeColors.effect.fill} stroke={nodeColors.effect.stroke} strokeWidth="1.5" />
+            <text x={effectX + nodeW / 2} y={y + nodeH / 2} fontSize="10" fill={nodeColors.effect.text} textAnchor="middle" dominantBaseline="middle">
+              {displayLabel}
             </text>
           </g>
         );
@@ -391,9 +546,9 @@ function CauseEffectDiagram({ data }: { data: CauseEffectData }) {
 
       {/* Connections */}
       {data.connections.map((conn, i) => {
-        const y1 = (causePositions[conn.cause] ?? 0) + 15;
-        const y2 = (effectPositions[conn.effect] ?? 0) + 15;
-        const x1 = causeX + 100;
+        const y1 = (causePositions[conn.cause] ?? 0) + nodeH / 2;
+        const y2 = (effectPositions[conn.effect] ?? 0) + nodeH / 2;
+        const x1 = causeX + nodeW;
         const x2 = effectX;
 
         return (
@@ -454,13 +609,27 @@ function layoutAttackTree(
   };
 }
 
-function renderAttackTreeNode(node: AttackTreeNodeWithPos): React.ReactNode {
-  const nodeW = 130;
-  const nodeH = 40;
+function renderAttackTreeNode(
+  node: AttackTreeNodeWithPos,
+  onShowTooltip: (e: React.MouseEvent | React.TouchEvent, text: string) => void,
+  onHideTooltip: () => void,
+  onTapNode: (e: React.TouchEvent, text: string) => void,
+): React.ReactNode {
+  const nodeW = 160; // увеличено с 130
+  const nodeH = 44;  // увеличено с 40
   const style = node.type === 'AND' ? nodeColors.and : nodeColors.or;
+  const displayLabel = truncateText(node.label, 20);
+  const isTruncated = node.label.length > 20;
 
   return (
-    <g key={node.id}>
+    <g
+      key={node.id}
+      onMouseEnter={isTruncated ? (e) => onShowTooltip(e, node.label) : undefined}
+      onMouseLeave={isTruncated ? onHideTooltip : undefined}
+      onTouchStart={isTruncated ? (e) => onTapNode(e, node.label) : undefined}
+      className={isTruncated ? 'cursor-pointer' : ''}
+    >
+      <title>{node.label}</title>
       {/* Lines to children */}
       {node.children?.map((child) => (
         <line
@@ -474,7 +643,7 @@ function renderAttackTreeNode(node: AttackTreeNodeWithPos): React.ReactNode {
         />
       ))}
 
-      {/* Node with AND/OR badge */}
+      {/* Node */}
       <rect
         x={node.x - nodeW / 2}
         y={node.y - nodeH / 2}
@@ -515,21 +684,25 @@ function renderAttackTreeNode(node: AttackTreeNodeWithPos): React.ReactNode {
         dominantBaseline="middle"
         fontWeight="500"
       >
-        {node.label.length > 16 ? node.label.slice(0, 14) + '…' : node.label}
+        {displayLabel}
       </text>
 
       {/* Recurse children */}
-      {node.children?.map((child) => renderAttackTreeNode(child))}
+      {node.children?.map((child) => renderAttackTreeNode(child, onShowTooltip, onHideTooltip, onTapNode))}
     </g>
   );
 }
 
-function AttackTreeDiagram({ data }: { data: AttackTreeData }) {
-  const xOffset = { value: 80 };
-  const xSpacing = 150;
+function AttackTreeDiagram({ data, onShowTooltip, onHideTooltip, onTapNode }: {
+  data: AttackTreeData;
+  onShowTooltip: (e: React.MouseEvent | React.TouchEvent, text: string) => void;
+  onHideTooltip: () => void;
+  onTapNode: (e: React.TouchEvent, text: string) => void;
+}) {
+  const xOffset = { value: 90 };
+  const xSpacing = 170; // увеличено с 150
   const ySpacing = 70;
 
-  // Build a virtual root from the goal
   const virtualRoot = {
     id: 'goal',
     label: data.goal,
@@ -550,7 +723,7 @@ function AttackTreeDiagram({ data }: { data: AttackTreeData }) {
 
   return (
     <svg viewBox={`0 0 ${Math.max(maxX, 500)} ${Math.max(maxY + 30, 300)}`} className="w-full" style={{ maxHeight: '400px' }}>
-      {renderAttackTreeNode(layout)}
+      {renderAttackTreeNode(layout, onShowTooltip, onHideTooltip, onTapNode)}
     </svg>
   );
 }
@@ -559,12 +732,16 @@ function AttackTreeDiagram({ data }: { data: AttackTreeData }) {
 // Knowledge Map Diagram Renderer
 // ============================================================
 
-function KnowledgeMapDiagram({ data }: { data: KnowledgeMapData }) {
-  const cx = 250;
-  const cy = 150;
-  const radius = 110;
+function KnowledgeMapDiagram({ data, onShowTooltip, onHideTooltip, onTapNode }: {
+  data: KnowledgeMapData;
+  onShowTooltip: (e: React.MouseEvent | React.TouchEvent, text: string) => void;
+  onHideTooltip: () => void;
+  onTapNode: (e: React.TouchEvent, text: string) => void;
+}) {
+  const cx = 280;
+  const cy = 160;
+  const radius = 130;
 
-  // Position concepts in a circle
   const positions: Record<string, { x: number; y: number; label: string; description: string }> = {};
   data.concepts.forEach((concept, i) => {
     const angle = (2 * Math.PI * i) / data.concepts.length - Math.PI / 2;
@@ -577,7 +754,7 @@ function KnowledgeMapDiagram({ data }: { data: KnowledgeMapData }) {
   });
 
   return (
-    <svg viewBox="0 0 500 300" className="w-full" style={{ maxHeight: '400px' }}>
+    <svg viewBox="0 0 560 320" className="w-full" style={{ maxHeight: '400px' }}>
       <ArrowMarker />
 
       {/* Relations */}
@@ -589,7 +766,7 @@ function KnowledgeMapDiagram({ data }: { data: KnowledgeMapData }) {
         const dx = to.x - from.x;
         const dy = to.y - from.y;
         const len = Math.sqrt(dx * dx + dy * dy);
-        const r = 30;
+        const r = 38;
         const x1 = from.x + (dx / len) * r;
         const y1 = from.y + (dy / len) * r;
         const x2 = to.x - (dx / len) * r;
@@ -598,11 +775,21 @@ function KnowledgeMapDiagram({ data }: { data: KnowledgeMapData }) {
         const midX = (x1 + x2) / 2;
         const midY = (y1 + y2) / 2 - 6;
 
+        const displayRelLabel = truncateText(rel.label, 18);
+        const isRelTruncated = rel.label.length > 18;
+
         return (
-          <g key={`rel-${i}`}>
+          <g
+            key={`rel-${i}`}
+            onMouseEnter={isRelTruncated ? (e) => onShowTooltip(e, rel.label) : undefined}
+            onMouseLeave={isRelTruncated ? onHideTooltip : undefined}
+            onTouchStart={isRelTruncated ? (e) => onTapNode(e, rel.label) : undefined}
+            className={isRelTruncated ? 'cursor-pointer' : ''}
+          >
+            <title>{rel.label}</title>
             <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#8b5cf6" strokeWidth="1.5" markerEnd="url(#arrowhead-blue)" />
             <text x={midX} y={midY} fontSize="8" fill="#6b7280" textAnchor="middle" dominantBaseline="middle">
-              {rel.label.length > 16 ? rel.label.slice(0, 14) + '…' : rel.label}
+              {displayRelLabel}
             </text>
           </g>
         );
@@ -613,11 +800,20 @@ function KnowledgeMapDiagram({ data }: { data: KnowledgeMapData }) {
         const pos = positions[concept.id];
         if (!pos) return null;
         const style = nodeColors.concept;
+        const displayLabel = truncateText(pos.label, 14);
+        const isTruncated = pos.label.length > 14;
         return (
-          <g key={concept.id}>
-            <ellipse cx={pos.x} cy={pos.y} rx={34} ry={22} fill={style.fill} stroke={style.stroke} strokeWidth="1.5" />
+          <g
+            key={concept.id}
+            onMouseEnter={isTruncated ? (e) => onShowTooltip(e, `${pos.label}\n${pos.description}`) : undefined}
+            onMouseLeave={isTruncated ? onHideTooltip : undefined}
+            onTouchStart={isTruncated ? (e) => onTapNode(e, `${pos.label}\n${pos.description}`) : undefined}
+            className={isTruncated ? 'cursor-pointer' : ''}
+          >
+            <title>{pos.label} — {pos.description}</title>
+            <ellipse cx={pos.x} cy={pos.y} rx={40} ry={26} fill={style.fill} stroke={style.stroke} strokeWidth="1.5" />
             <text x={pos.x} y={pos.y} fontSize="10" fill={style.text} textAnchor="middle" dominantBaseline="middle" fontWeight="600">
-              {pos.label.length > 10 ? pos.label.slice(0, 8) + '…' : pos.label}
+              {displayLabel}
             </text>
           </g>
         );
@@ -636,25 +832,42 @@ interface DiagramRendererProps {
 }
 
 export function DiagramRenderer({ diagramType, diagramData }: DiagramRendererProps) {
-  // Type-narrowing render
-  switch (diagramData.type) {
-    case 'flow':
-      return <FlowDiagram data={diagramData} />;
-    case 'tree':
-      return <TreeDiagram data={diagramData} />;
-    case 'graph':
-      return <GraphDiagram data={diagramData} />;
-    case 'cause-effect':
-      return <CauseEffectDiagram data={diagramData} />;
-    case 'attack-tree':
-      return <AttackTreeDiagram data={diagramData} />;
-    case 'knowledge-map':
-      return <KnowledgeMapDiagram data={diagramData} />;
-    default:
-      return (
-        <div className="rounded-lg border-2 border-dashed border-muted-foreground/20 bg-muted/30 p-6 text-center text-sm text-muted-foreground">
-          Неподдерживаемый тип диаграммы: {diagramType}
-        </div>
-      );
-  }
+  const { tooltip, showTooltip, hideTooltip, handleTap } = useDiagramTooltip();
+
+  const commonProps = {
+    onShowTooltip: showTooltip,
+    onHideTooltip: hideTooltip,
+    onTapNode: handleTap,
+  };
+
+  return (
+    <div className="relative">
+      {/* Type-narrowing render */}
+      {(() => {
+        switch (diagramData.type) {
+          case 'flow':
+            return <FlowDiagram data={diagramData} {...commonProps} />;
+          case 'tree':
+            return <TreeDiagram data={diagramData} {...commonProps} />;
+          case 'graph':
+            return <GraphDiagram data={diagramData} {...commonProps} />;
+          case 'cause-effect':
+            return <CauseEffectDiagram data={diagramData} {...commonProps} />;
+          case 'attack-tree':
+            return <AttackTreeDiagram data={diagramData} {...commonProps} />;
+          case 'knowledge-map':
+            return <KnowledgeMapDiagram data={diagramData} {...commonProps} />;
+          default:
+            return (
+              <div className="rounded-lg border-2 border-dashed border-muted-foreground/20 bg-muted/30 p-6 text-center text-sm text-muted-foreground">
+                Неподдерживаемый тип диаграммы: {diagramType}
+              </div>
+            );
+        }
+      })()}
+
+      {/* Кастомный тултип */}
+      <DiagramTooltip tooltip={tooltip} />
+    </div>
+  );
 }
